@@ -4,6 +4,7 @@ import { Mic, Square, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useHaptics } from "@/hooks/useHaptics";
 import { LanguageSelector, SUPPORTED_LANGUAGES } from "@/components/LanguageSelector";
 
 interface VoiceRecorderProps {
@@ -35,6 +36,8 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
     stopListening,
     resetTranscript,
   } = useSpeechRecognition(selectedLanguage === "auto" ? "en-US" : selectedLanguage);
+
+  const haptics = useHaptics();
 
   useEffect(() => {
     return () => {
@@ -107,6 +110,8 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
   };
 
   const stopRecording = () => {
+    haptics.notification("success");
+    
     if (isRecording && mediaRecorderRef.current) {
       // Stop speech recognition
       stopListening();
@@ -141,6 +146,8 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
   };
 
   const togglePause = () => {
+    haptics.selection();
+    
     if (!mediaRecorderRef.current) return;
     
     if (isPaused) {

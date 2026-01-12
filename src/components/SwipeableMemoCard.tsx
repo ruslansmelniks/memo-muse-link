@@ -1,9 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, useMotionValue, useTransform, PanInfo } from "framer-motion";
 import { Trash2, FolderInput } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MemoCard } from "./MemoCard";
 import { Folder } from "@/types/folder";
+import { useHaptics } from "@/hooks/useHaptics";
 
 interface SwipeableMemoCardProps {
   memo: {
@@ -38,23 +39,44 @@ export function SwipeableMemoCard({
   canDelete = false,
 }: SwipeableMemoCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [hasTriggeredHaptic, setHasTriggeredHaptic] = useState(false);
   const constraintsRef = useRef<HTMLDivElement>(null);
   const x = useMotionValue(0);
+  const haptics = useHaptics();
   
   const deleteOpacity = useTransform(x, [-120, -80], [1, 0]);
   const deleteScale = useTransform(x, [-120, -60], [1, 0.8]);
   const moveOpacity = useTransform(x, [80, 120], [0, 1]);
   const moveScale = useTransform(x, [60, 120], [0.8, 1]);
+
+  // Trigger haptic when crossing threshold
+  useEffect(() => {
+    const unsubscribe = x.on("change", (latest) => {
+      const threshold = 100;
+      const crossedThreshold = Math.abs(latest) >= threshold;
+      
+      if (crossedThreshold && !hasTriggeredHaptic) {
+        haptics.impact("medium");
+        setHasTriggeredHaptic(true);
+      } else if (!crossedThreshold && hasTriggeredHaptic) {
+        setHasTriggeredHaptic(false);
+      }
+    });
+    
+    return () => unsubscribe();
+  }, [x, hasTriggeredHaptic, haptics]);
   
   const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const threshold = 100;
     
     if (info.offset.x < -threshold && onDelete && canDelete) {
+      haptics.notification("error");
       setIsDeleting(true);
       setTimeout(() => {
         onDelete(memo.id);
       }, 200);
     } else if (info.offset.x > threshold && onMoveToFolder && folders.length > 0) {
+      haptics.notification("success");
       // Move to next folder or unfiled
       const currentFolderIndex = folders.findIndex(f => f.id === memo.folderId);
       if (currentFolderIndex === -1) {
@@ -68,6 +90,8 @@ export function SwipeableMemoCard({
         onMoveToFolder(memo.id, null);
       }
     }
+    
+    setHasTriggeredHaptic(false);
   };
 
   return (
