@@ -268,7 +268,7 @@ export function RecordView() {
       setCurrentAudioBlob(null);
       
       toast.success("Memo saved!", {
-        description: `AI extracted ${result.tasks?.length || 0} tasks and categorized as ${result.categories?.join(", ") || "Ideas"}.`,
+        description: `AI found ${result.tasks?.length || 0} nuggets and categorized as ${result.categories?.join(", ") || "Ideas"}.`,
       });
     } catch (error) {
       console.error("Processing error:", error);
