@@ -277,12 +277,17 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
                   ease: "easeInOut"
                 }}
                 className="rounded-full"
+                style={{ touchAction: "manipulation" }}
               >
                 <Button
                   variant="hero"
                   size="iconLg"
                   onClick={stopRecording}
-                  className="w-20 h-20 rounded-full"
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    stopRecording();
+                  }}
+                  className="w-20 h-20 rounded-full touch-manipulation"
                 >
                   <Square className="h-6 w-6" />
                 </Button>
