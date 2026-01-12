@@ -33,7 +33,7 @@ export function RecordingModal({
   if (!isOpen) return null;
 
   const handleSave = () => {
-    onSave({ title: title || "Untitled memo", isPublic });
+    onSave({ title: title.trim(), isPublic });
     setTitle("");
     setIsPublic(false);
   };
