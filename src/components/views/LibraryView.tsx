@@ -8,6 +8,7 @@ import { FolderModal } from "@/components/FolderModal";
 import { FolderSummaryModal } from "@/components/FolderSummaryModal";
 import { PullToRefreshIndicator } from "@/components/PullToRefresh";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { useDebounce } from "@/hooks/useDebounce";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -54,6 +55,7 @@ export function LibraryView() {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summarizingFolder, setSummarizingFolder] = useState<Folder | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
@@ -370,9 +372,9 @@ export function LibraryView() {
       filtered = filtered.filter(m => m.folderId === selectedFolderId);
     }
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
+    // Filter by search query (using debounced value)
+    if (debouncedSearchQuery.trim()) {
+      const query = debouncedSearchQuery.toLowerCase();
       filtered = filtered.filter(m => 
         m.title.toLowerCase().includes(query) ||
         m.transcript.toLowerCase().includes(query) ||
