@@ -1,7 +1,23 @@
 import { useState, useRef, useCallback } from "react";
-import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2 } from "lucide-react";
+import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2, Trash2, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AudioWaveform } from "@/components/AudioWaveform";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 interface MemoCardProps {
@@ -24,6 +40,8 @@ interface MemoCardProps {
     comments: number;
   };
   variant?: "default" | "compact";
+  onDelete?: (id: string) => void;
+  canDelete?: boolean;
 }
 
 const categoryColors: Record<string, string> = {
@@ -35,10 +53,11 @@ const categoryColors: Record<string, string> = {
   Creative: "bg-lavender-50 text-lavender-300",
 };
 
-export function MemoCard({ memo, variant = "default" }: MemoCardProps) {
+export function MemoCard({ memo, variant = "default", onDelete, canDelete = false }: MemoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(memo.duration);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const formatDuration = (seconds: number) => {
@@ -104,128 +123,173 @@ export function MemoCard({ memo, variant = "default" }: MemoCardProps) {
     }
   }, [initAudio, isPlaying]);
 
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete(memo.id);
+    }
+    setShowDeleteDialog(false);
+  };
+
   return (
-    <div 
-      className={cn(
-        "glass-card rounded-2xl p-5 shadow-soft hover:shadow-medium transition-all duration-300 animate-fade-in",
-        variant === "compact" && "p-4"
-      )}
-    >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-primary-foreground font-medium text-sm">
-            {memo.author.name.charAt(0)}
-          </div>
-          <div>
-            <p className="font-medium text-foreground">{memo.author.name}</p>
-            <p className="text-xs text-muted-foreground">{formatTimeAgo(memo.createdAt)}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {memo.isPublic ? (
-            <Globe className="h-4 w-4 text-muted-foreground" />
-          ) : (
-            <Lock className="h-4 w-4 text-muted-foreground" />
-          )}
-        </div>
-      </div>
-
-      {/* Title */}
-      <h3 className="font-display font-semibold text-foreground mb-3">{memo.title}</h3>
-
-      {/* Audio Player with Waveform */}
-      {memo.audioUrl && (
-        <div className="bg-muted/30 rounded-xl p-3 mb-4">
+    <>
+      <div 
+        className={cn(
+          "glass-card rounded-2xl p-5 shadow-soft hover:shadow-medium transition-all duration-300 animate-fade-in",
+          variant === "compact" && "p-4"
+        )}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3">
-            <button 
-              onClick={togglePlayback}
-              className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center shadow-soft hover:shadow-glow transition-shadow flex-shrink-0"
-            >
-              {isPlaying ? (
-                <Pause className="h-4 w-4 text-primary-foreground" />
-              ) : (
-                <Play className="h-4 w-4 text-primary-foreground ml-0.5" />
-              )}
-            </button>
-            
-            <div className="flex-1 min-w-0">
-              <AudioWaveform
-                audioUrl={memo.audioUrl}
-                isPlaying={isPlaying}
-                currentTime={currentTime}
-                duration={audioDuration}
-                onSeek={handleSeek}
-              />
+            <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-primary-foreground font-medium text-sm">
+              {memo.author.name.charAt(0)}
             </div>
-            
-            <div className="text-xs text-muted-foreground font-medium flex-shrink-0">
-              {formatDuration(currentTime)} / {formatDuration(audioDuration)}
+            <div>
+              <p className="font-medium text-foreground">{memo.author.name}</p>
+              <p className="text-xs text-muted-foreground">{formatTimeAgo(memo.createdAt)}</p>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* No audio fallback */}
-      {!memo.audioUrl && (
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-            <Play className="h-4 w-4 text-muted-foreground ml-0.5" />
+          <div className="flex items-center gap-2">
+            {memo.isPublic ? (
+              <Globe className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <Lock className="h-4 w-4 text-muted-foreground" />
+            )}
+            {canDelete && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    onClick={() => setShowDeleteDialog(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete memo
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
-          <p className="text-xs text-muted-foreground">No audio available</p>
         </div>
-      )}
 
-      {/* Summary */}
-      <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-        {memo.summary || memo.transcript.slice(0, 150)}
-      </p>
+        {/* Title */}
+        <h3 className="font-display font-semibold text-foreground mb-3">{memo.title}</h3>
 
-      {/* Categories */}
-      {memo.categories.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {memo.categories.map((category) => (
-            <span
-              key={category}
-              className={cn(
-                "px-3 py-1 rounded-full text-xs font-medium",
-                categoryColors[category] || "bg-muted text-muted-foreground"
-              )}
-            >
-              {category}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Tasks */}
-      {memo.tasks.length > 0 && (
-        <div className="bg-muted/50 rounded-xl p-3 mb-4">
-          <p className="text-xs font-medium text-muted-foreground mb-2">Extracted Tasks</p>
-          <div className="space-y-2">
-            {memo.tasks.slice(0, 3).map((task, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-mint-400" />
-                <span className="text-sm text-foreground">{task}</span>
+        {/* Audio Player with Waveform */}
+        {memo.audioUrl && (
+          <div className="bg-muted/30 rounded-xl p-3 mb-4">
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={togglePlayback}
+                className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center shadow-soft hover:shadow-glow transition-shadow flex-shrink-0"
+              >
+                {isPlaying ? (
+                  <Pause className="h-4 w-4 text-primary-foreground" />
+                ) : (
+                  <Play className="h-4 w-4 text-primary-foreground ml-0.5" />
+                )}
+              </button>
+              
+              <div className="flex-1 min-w-0">
+                <AudioWaveform
+                  audioUrl={memo.audioUrl}
+                  isPlaying={isPlaying}
+                  currentTime={currentTime}
+                  duration={audioDuration}
+                  onSeek={handleSeek}
+                />
               </div>
+              
+              <div className="text-xs text-muted-foreground font-medium flex-shrink-0">
+                {formatDuration(currentTime)} / {formatDuration(audioDuration)}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* No audio fallback */}
+        {!memo.audioUrl && (
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+              <Play className="h-4 w-4 text-muted-foreground ml-0.5" />
+            </div>
+            <p className="text-xs text-muted-foreground">No audio available</p>
+          </div>
+        )}
+
+        {/* Summary */}
+        <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+          {memo.summary || memo.transcript.slice(0, 150)}
+        </p>
+
+        {/* Categories */}
+        {memo.categories.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {memo.categories.map((category) => (
+              <span
+                key={category}
+                className={cn(
+                  "px-3 py-1 rounded-full text-xs font-medium",
+                  categoryColors[category] || "bg-muted text-muted-foreground"
+                )}
+              >
+                {category}
+              </span>
             ))}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Footer */}
-      {memo.isPublic && (
-        <div className="flex items-center gap-4 pt-3 border-t border-border">
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
-            <Heart className="h-4 w-4 mr-1" />
-            {memo.likes}
-          </Button>
-          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
-            <MessageCircle className="h-4 w-4 mr-1" />
-            {memo.comments}
-          </Button>
-        </div>
-      )}
-    </div>
+        {/* Tasks */}
+        {memo.tasks.length > 0 && (
+          <div className="bg-muted/50 rounded-xl p-3 mb-4">
+            <p className="text-xs font-medium text-muted-foreground mb-2">Extracted Tasks</p>
+            <div className="space-y-2">
+              {memo.tasks.slice(0, 3).map((task, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-mint-400" />
+                  <span className="text-sm text-foreground">{task}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        {memo.isPublic && (
+          <div className="flex items-center gap-4 pt-3 border-t border-border">
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
+              <Heart className="h-4 w-4 mr-1" />
+              {memo.likes}
+            </Button>
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
+              <MessageCircle className="h-4 w-4 mr-1" />
+              {memo.comments}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="glass-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this memo?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete "{memo.title}" and its audio recording. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
