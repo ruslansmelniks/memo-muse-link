@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Header } from "@/components/Header";
 import { TabNavigation } from "@/components/TabNavigation";
 import { RecordView } from "@/components/views/RecordView";
-import { DiscoverView } from "@/components/views/DiscoverView";
 import { LibraryView } from "@/components/views/LibraryView";
 import { SettingsView } from "@/components/views/SettingsView";
 
@@ -13,8 +12,6 @@ const Index = () => {
     switch (activeTab) {
       case "record":
         return <RecordView />;
-      case "discover":
-        return <DiscoverView />;
       case "library":
         return <LibraryView />;
       case "settings":
