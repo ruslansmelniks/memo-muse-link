@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { FolderOpen, Clock, Heart, CheckCircle2 } from "lucide-react";
+import { FolderOpen, Clock, Heart, CheckCircle2, GripVertical } from "lucide-react";
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { MemoCard } from "@/components/MemoCard";
 import { FolderSidebar } from "@/components/FolderSidebar";
 import { FolderModal } from "@/components/FolderModal";
@@ -42,6 +43,7 @@ export function LibraryView() {
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [isSavingFolder, setIsSavingFolder] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -99,7 +101,6 @@ export function LibraryView() {
     if (error) {
       console.error("Error loading folders:", error);
     } else if (data) {
-      // Add memo counts
       const foldersWithCounts = data.map(f => ({
         ...f,
         memo_count: memos.filter(m => m.folderId === f.id).length
@@ -171,11 +172,40 @@ export function LibraryView() {
       if (error) throw error;
 
       setMemos(memos.map(m => m.id === memoId ? { ...m, folderId } : m));
-      toast.success(folderId ? "Moved to folder" : "Removed from folder");
+      
+      const folderName = folderId 
+        ? folders.find(f => f.id === folderId)?.name 
+        : "Unfiled";
+      toast.success(`Moved to ${folderName}`);
     } catch (error) {
       console.error("Move error:", error);
       toast.error("Failed to move memo");
     }
+  };
+
+  const handleDragStart = () => {
+    setIsDragging(true);
+  };
+
+  const handleDragEnd = async (result: DropResult) => {
+    setIsDragging(false);
+    
+    if (!result.destination) return;
+    
+    const { draggableId, destination } = result;
+    const destinationId = destination.droppableId;
+    
+    // Determine target folder
+    let targetFolderId: string | null = null;
+    if (destinationId !== "unfiled" && destinationId !== "all-memos") {
+      targetFolderId = destinationId;
+    }
+    
+    // Find memo and check if it's actually changing
+    const memo = memos.find(m => m.id === draggableId);
+    if (!memo || memo.folderId === targetFolderId) return;
+    
+    await handleMoveToFolder(draggableId, targetFolderId);
   };
 
   const handleCreateFolder = () => {
@@ -240,7 +270,6 @@ export function LibraryView() {
       if (error) throw error;
 
       setFolders(folders.filter(f => f.id !== folderId));
-      // Memos become unfiled (handled by ON DELETE SET NULL in DB)
       setMemos(memos.map(m => m.folderId === folderId ? { ...m, folderId: null } : m));
       
       if (selectedFolderId === folderId) {
@@ -298,128 +327,170 @@ export function LibraryView() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-6 pb-32">
-      {/* Header */}
-      <div className="mb-6 animate-fade-in">
-        <h2 className="font-display text-3xl font-bold text-foreground mb-2">
-          {selectedFolder ? selectedFolder.name : selectedFolderId === "unfiled" ? "Unfiled Memos" : "Your Library"}
-        </h2>
-        <p className="text-muted-foreground">
-          {selectedFolder || selectedFolderId === "unfiled" 
-            ? `${filteredMemos.length} memos`
-            : `${memos.length} memos · ${totalTasks} tasks extracted`
-          }
-        </p>
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-6">
-        {/* Folder Sidebar */}
-        <FolderSidebar
-          folders={folders}
-          selectedFolderId={selectedFolderId}
-          onSelectFolder={setSelectedFolderId}
-          onCreateFolder={handleCreateFolder}
-          onEditFolder={handleEditFolder}
-          onDeleteFolder={handleDeleteFolder}
-          unfiledCount={unfiledCount}
-          totalCount={memos.length}
-        />
-
-        {/* Main Content */}
-        <div className="flex-1">
-          {/* Tabs */}
-          <div className="flex gap-2 mb-6 overflow-x-auto pb-2 animate-fade-in" style={{ animationDelay: "100ms" }}>
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200",
-                    isActive
-                      ? "gradient-primary text-primary-foreground shadow-soft"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Stats Cards - Only show when viewing all */}
-          {!selectedFolderId && (
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="glass-card rounded-2xl p-4 animate-fade-in" style={{ animationDelay: "150ms" }}>
-                <div className="w-10 h-10 rounded-xl gradient-mint flex items-center justify-center mb-2">
-                  <Clock className="h-5 w-5 text-mint-400" />
-                </div>
-                <p className="text-2xl font-display font-bold text-foreground">
-                  {Math.round(totalDuration / 60)}m
-                </p>
-                <p className="text-xs text-muted-foreground">Total recorded</p>
-              </div>
-              
-              <div className="glass-card rounded-2xl p-4 animate-fade-in" style={{ animationDelay: "200ms" }}>
-                <div className="w-10 h-10 rounded-xl gradient-lavender flex items-center justify-center mb-2">
-                  <CheckCircle2 className="h-5 w-5 text-lavender-400" />
-                </div>
-                <p className="text-2xl font-display font-bold text-foreground">
-                  {totalTasks}
-                </p>
-                <p className="text-xs text-muted-foreground">Tasks extracted</p>
-              </div>
-            </div>
+    <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div className="container mx-auto px-4 py-6 pb-32">
+        {/* Header */}
+        <div className="mb-6 animate-fade-in">
+          <h2 className="font-display text-3xl font-bold text-foreground mb-2">
+            {selectedFolder ? selectedFolder.name : selectedFolderId === "unfiled" ? "Unfiled Memos" : "Your Library"}
+          </h2>
+          <p className="text-muted-foreground">
+            {selectedFolder || selectedFolderId === "unfiled" 
+              ? `${filteredMemos.length} memos`
+              : `${memos.length} memos · ${totalTasks} tasks extracted`
+            }
+          </p>
+          {isDragging && (
+            <p className="text-sm text-primary mt-2 animate-fade-in">
+              Drop on a folder in the sidebar to move
+            </p>
           )}
+        </div>
 
-          {/* Memos List */}
-          <div className="space-y-4">
-            {loading ? (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">Loading...</p>
-              </div>
-            ) : filteredMemos.length > 0 ? (
-              filteredMemos.map((memo, i) => (
-                <div 
-                  key={memo.id}
-                  style={{ animationDelay: `${250 + i * 100}ms` }}
-                  className="animate-slide-up"
-                >
-                  <MemoCard 
-                    memo={memo} 
-                    canDelete={true}
-                    onDelete={handleDeleteMemo}
-                    onUpdateTitle={handleUpdateTitle}
-                    onMoveToFolder={handleMoveToFolder}
-                    folders={folders}
-                  />
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Folder Sidebar with drop zones */}
+          <FolderSidebar
+            folders={folders}
+            selectedFolderId={selectedFolderId}
+            onSelectFolder={setSelectedFolderId}
+            onCreateFolder={handleCreateFolder}
+            onEditFolder={handleEditFolder}
+            onDeleteFolder={handleDeleteFolder}
+            unfiledCount={unfiledCount}
+            totalCount={memos.length}
+            isDragging={isDragging}
+          />
+
+          {/* Main Content */}
+          <div className="flex-1">
+            {/* Tabs */}
+            <div className="flex gap-2 mb-6 overflow-x-auto pb-2 animate-fade-in" style={{ animationDelay: "100ms" }}>
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={cn(
+                      "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200",
+                      isActive
+                        ? "gradient-primary text-primary-foreground shadow-soft"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    )}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Stats Cards - Only show when viewing all */}
+            {!selectedFolderId && (
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div className="glass-card rounded-2xl p-4 animate-fade-in" style={{ animationDelay: "150ms" }}>
+                  <div className="w-10 h-10 rounded-xl gradient-mint flex items-center justify-center mb-2">
+                    <Clock className="h-5 w-5 text-mint-400" />
+                  </div>
+                  <p className="text-2xl font-display font-bold text-foreground">
+                    {Math.round(totalDuration / 60)}m
+                  </p>
+                  <p className="text-xs text-muted-foreground">Total recorded</p>
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-muted-foreground">
-                  {activeTab === "all" 
-                    ? "No memos yet. Start recording!" 
-                    : "No memos match this filter"}
-                </p>
+                
+                <div className="glass-card rounded-2xl p-4 animate-fade-in" style={{ animationDelay: "200ms" }}>
+                  <div className="w-10 h-10 rounded-xl gradient-lavender flex items-center justify-center mb-2">
+                    <CheckCircle2 className="h-5 w-5 text-lavender-400" />
+                  </div>
+                  <p className="text-2xl font-display font-bold text-foreground">
+                    {totalTasks}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Tasks extracted</p>
+                </div>
               </div>
             )}
+
+            {/* Memos List - Droppable area */}
+            <Droppable droppableId={selectedFolderId || "all-memos"}>
+              {(provided, snapshot) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className={cn(
+                    "space-y-4 min-h-[200px] rounded-2xl transition-colors",
+                    snapshot.isDraggingOver && "bg-primary/5"
+                  )}
+                >
+                  {loading ? (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">Loading...</p>
+                    </div>
+                  ) : filteredMemos.length > 0 ? (
+                    filteredMemos.map((memo, i) => (
+                      <Draggable key={memo.id} draggableId={memo.id} index={i}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            className={cn(
+                              "animate-slide-up",
+                              snapshot.isDragging && "opacity-90 shadow-lg"
+                            )}
+                            style={{
+                              ...provided.draggableProps.style,
+                              animationDelay: `${250 + i * 100}ms`,
+                            }}
+                          >
+                            <div className="relative group">
+                              {/* Drag Handle */}
+                              <div
+                                {...provided.dragHandleProps}
+                                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-8 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing hidden lg:flex items-center justify-center w-6 h-10 rounded-l-lg bg-muted hover:bg-muted/80"
+                              >
+                                <GripVertical className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              <MemoCard 
+                                memo={memo} 
+                                canDelete={true}
+                                onDelete={handleDeleteMemo}
+                                onUpdateTitle={handleUpdateTitle}
+                                onMoveToFolder={handleMoveToFolder}
+                                folders={folders}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))
+                  ) : (
+                    <div className="text-center py-12">
+                      <p className="text-muted-foreground">
+                        {activeTab === "all" 
+                          ? selectedFolderId === "unfiled"
+                            ? "No unfiled memos. All your memos are organized!"
+                            : "No memos yet. Start recording!" 
+                          : "No memos match this filter"}
+                      </p>
+                    </div>
+                  )}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
           </div>
         </div>
-      </div>
 
-      {/* Folder Modal */}
-      <FolderModal
-        isOpen={showFolderModal}
-        onClose={() => setShowFolderModal(false)}
-        onSave={handleSaveFolder}
-        folder={editingFolder}
-        isLoading={isSavingFolder}
-      />
-    </div>
+        {/* Folder Modal */}
+        <FolderModal
+          isOpen={showFolderModal}
+          onClose={() => setShowFolderModal(false)}
+          onSave={handleSaveFolder}
+          folder={editingFolder}
+          isLoading={isSavingFolder}
+        />
+      </div>
+    </DragDropContext>
   );
 }
