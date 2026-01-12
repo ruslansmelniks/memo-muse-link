@@ -30,7 +30,7 @@ declare global {
   }
 }
 
-export function useSpeechRecognition() {
+export function useSpeechRecognition(language: string = "en-US") {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [interimTranscript, setInterimTranscript] = useState("");
@@ -39,6 +39,15 @@ export function useSpeechRecognition() {
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const finalTranscriptRef = useRef("");
+  const currentLanguageRef = useRef(language);
+
+  // Update language when it changes
+  useEffect(() => {
+    currentLanguageRef.current = language;
+    if (recognitionRef.current && !isListening) {
+      recognitionRef.current.lang = language === "auto" ? "en-US" : language;
+    }
+  }, [language, isListening]);
 
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -51,7 +60,8 @@ export function useSpeechRecognition() {
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = "en-US";
+    // For "auto", default to en-US but the AI will detect the actual language
+    recognition.lang = language === "auto" ? "en-US" : language;
 
     recognition.onstart = () => {
       setIsListening(true);
@@ -96,7 +106,7 @@ export function useSpeechRecognition() {
         recognitionRef.current.abort();
       }
     };
-  }, []);
+  }, [language]);
 
   const startListening = useCallback(() => {
     if (!recognitionRef.current || !isSupported) return;

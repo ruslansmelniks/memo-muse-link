@@ -3,16 +3,19 @@ import { Mic, Square, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { LanguageSelector, SUPPORTED_LANGUAGES } from "@/components/LanguageSelector";
 
 interface VoiceRecorderProps {
-  onRecordingComplete: (transcript: string, duration: number, audioBlob: Blob | null) => void;
+  onRecordingComplete: (transcript: string, duration: number, audioBlob: Blob | null, language: string) => void;
+  initialLanguage?: string;
 }
 
-export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
+export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [duration, setDuration] = useState(0);
   const [audioLevels, setAudioLevels] = useState<number[]>(Array(12).fill(0.2));
+  const [selectedLanguage, setSelectedLanguage] = useState(initialLanguage);
   
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -30,7 +33,7 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
     startListening,
     stopListening,
     resetTranscript,
-  } = useSpeechRecognition();
+  } = useSpeechRecognition(selectedLanguage === "auto" ? "en-US" : selectedLanguage);
 
   useEffect(() => {
     return () => {
@@ -112,7 +115,7 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
         const finalTranscript = transcript || interimTranscript;
         
         if (finalTranscript.trim()) {
-          onRecordingComplete(finalTranscript.trim(), duration, audioBlob);
+          onRecordingComplete(finalTranscript.trim(), duration, audioBlob, selectedLanguage);
         }
       };
       
@@ -157,10 +160,21 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
   };
 
   const displayTranscript = transcript + (interimTranscript ? ` ${interimTranscript}` : "");
+  
+  const selectedLangDisplay = SUPPORTED_LANGUAGES.find(l => l.code === selectedLanguage);
 
   return (
     <div className="glass-card rounded-3xl p-8 shadow-medium">
       <div className="flex flex-col items-center space-y-6">
+        {/* Language Selector */}
+        <div className="w-full flex justify-center">
+          <LanguageSelector
+            selectedLanguage={selectedLanguage}
+            onLanguageChange={setSelectedLanguage}
+            disabled={isRecording}
+          />
+        </div>
+
         {/* Audio Visualizer */}
         <div className="flex items-center justify-center gap-1 h-20">
           {audioLevels.map((level, i) => (
@@ -232,7 +246,7 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
           ) : isRecording ? (
             isPaused 
               ? "Paused - tap to resume" 
-              : "Recording & transcribing... tap to stop"
+              : `Recording in ${selectedLangDisplay?.name || "Auto"}... tap to stop`
           ) : (
             "Tap to start recording your thoughts"
           )}

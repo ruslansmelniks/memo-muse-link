@@ -23,6 +23,7 @@ interface Memo {
   author: { name: string };
   likes: number;
   comments: number;
+  language?: string | null;
 }
 
 export function RecordView() {
@@ -33,6 +34,7 @@ export function RecordView() {
   const [currentTranscript, setCurrentTranscript] = useState("");
   const [currentDuration, setCurrentDuration] = useState(0);
   const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
+  const [currentLanguage, setCurrentLanguage] = useState("auto");
   
   const { user } = useAuth();
 
@@ -72,11 +74,12 @@ export function RecordView() {
         author: { name: "You" },
         likes: m.likes,
         comments: 0,
+        language: m.language,
       })));
     }
   };
 
-  const handleRecordingComplete = (transcript: string, duration: number, audioBlob: Blob | null) => {
+  const handleRecordingComplete = (transcript: string, duration: number, audioBlob: Blob | null, language: string) => {
     if (!transcript.trim()) {
       toast.error("No speech detected", {
         description: "Please try recording again and speak clearly.",
@@ -95,6 +98,7 @@ export function RecordView() {
     setCurrentTranscript(transcript);
     setCurrentDuration(duration);
     setCurrentAudioBlob(audioBlob);
+    setCurrentLanguage(language);
     setShowModal(true);
   };
 
@@ -129,7 +133,7 @@ export function RecordView() {
 
       // Call the AI processing edge function
       const { data: result, error } = await supabase.functions.invoke("process-memo", {
-        body: { transcript: currentTranscript },
+        body: { transcript: currentTranscript, language: currentLanguage },
       });
 
       if (error) {
@@ -150,6 +154,7 @@ export function RecordView() {
           audio_url: audioUrl,
           duration: currentDuration,
           author_name: user.email?.split("@")[0] || "User",
+          language: result.language || currentLanguage,
         })
         .select()
         .single();
@@ -172,6 +177,7 @@ export function RecordView() {
         author: { name: "You" },
         likes: savedMemo.likes,
         comments: 0,
+        language: savedMemo.language,
       };
 
       setMemos([newMemo, ...memos]);

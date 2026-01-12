@@ -11,7 +11,7 @@ serve(async (req) => {
   }
 
   try {
-    const { transcript } = await req.json();
+    const { transcript, language } = await req.json();
     
     if (!transcript || transcript.trim().length === 0) {
       return new Response(
@@ -25,22 +25,29 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const systemPrompt = `You are an AI assistant that processes voice memo transcripts. Analyze the transcript and extract:
+    const isAutoDetect = language === "auto" || !language;
+    
+    const systemPrompt = `You are an AI assistant that processes voice memo transcripts. The transcript may be in any language (commonly English or Russian).
 
-1. A concise summary (1-2 sentences max)
+Analyze the transcript and extract:
+
+1. A concise summary (1-2 sentences max) - IN THE SAME LANGUAGE as the transcript
 2. Relevant categories from this list: Ideas, Tasks, Reflections, Goals, Gratitude, Creative
-3. Any actionable tasks mentioned (as a list of short task descriptions)
-4. A suggested title (short, descriptive, 3-6 words)
+3. Any actionable tasks mentioned (as a list of short task descriptions) - IN THE SAME LANGUAGE as the transcript
+4. A suggested title (short, descriptive, 3-6 words) - IN THE SAME LANGUAGE as the transcript
+5. The detected language code (e.g., "en-US", "ru-RU", "uk-UA", "es-ES", "fr-FR", "de-DE")
 
 Respond in JSON format only:
 {
   "title": "suggested title here",
   "summary": "concise summary here",
   "categories": ["Category1", "Category2"],
-  "tasks": ["task 1", "task 2"]
+  "tasks": ["task 1", "task 2"],
+  "detected_language": "language code here"
 }
 
-Be concise and practical. Only include categories that truly fit. Only extract tasks that are clearly actionable items mentioned by the speaker.`;
+Be concise and practical. Only include categories that truly fit. Only extract tasks that are clearly actionable items mentioned by the speaker.
+The title, summary, and tasks should be in the SAME LANGUAGE as the original transcript.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -96,8 +103,14 @@ Be concise and practical. Only include categories that truly fit. Only extract t
         summary: transcript.slice(0, 150) + (transcript.length > 150 ? "..." : ""),
         categories: ["Ideas"],
         tasks: [],
+        detected_language: language || "en-US",
       };
     }
+
+    // Determine final language
+    const finalLanguage = isAutoDetect 
+      ? (parsed.detected_language || "en-US")
+      : language;
 
     return new Response(
       JSON.stringify({
@@ -106,6 +119,8 @@ Be concise and practical. Only include categories that truly fit. Only extract t
         categories: parsed.categories || ["Ideas"],
         tasks: parsed.tasks || [],
         transcript: transcript,
+        language: finalLanguage,
+        detected_language: parsed.detected_language,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

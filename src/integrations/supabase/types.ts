@@ -23,6 +23,7 @@ export type Database = {
           duration: number
           id: string
           is_public: boolean
+          language: string | null
           likes: number
           summary: string | null
           tasks: string[] | null
@@ -39,6 +40,7 @@ export type Database = {
           duration?: number
           id?: string
           is_public?: boolean
+          language?: string | null
           likes?: number
           summary?: string | null
           tasks?: string[] | null
@@ -55,6 +57,7 @@ export type Database = {
           duration?: number
           id?: string
           is_public?: boolean
+          language?: string | null
           likes?: number
           summary?: string | null
           tasks?: string[] | null
@@ -71,6 +74,7 @@ export type Database = {
           created_at: string
           display_name: string | null
           id: string
+          preferred_language: string
           updated_at: string
           user_id: string
         }
@@ -79,6 +83,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          preferred_language?: string
           updated_at?: string
           user_id: string
         }
@@ -87,6 +92,7 @@ export type Database = {
           created_at?: string
           display_name?: string | null
           id?: string
+          preferred_language?: string
           updated_at?: string
           user_id?: string
         }
