@@ -2,16 +2,16 @@ import { useState } from "react";
 import { X, Globe, Lock, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { cn } from "@/lib/utils";
 
 interface RecordingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: { title: string; isPublic: boolean }) => void;
   isProcessing?: boolean;
+  transcript?: string;
 }
 
-export function RecordingModal({ isOpen, onClose, onSave, isProcessing }: RecordingModalProps) {
+export function RecordingModal({ isOpen, onClose, onSave, isProcessing, transcript }: RecordingModalProps) {
   const [title, setTitle] = useState("");
   const [isPublic, setIsPublic] = useState(false);
 
@@ -45,16 +45,24 @@ export function RecordingModal({ isOpen, onClose, onSave, isProcessing }: Record
               <Loader2 className="absolute inset-0 m-auto h-8 w-8 text-primary-foreground animate-spin" />
             </div>
             <div className="text-center">
-              <p className="font-medium text-foreground">Processing your memo</p>
-              <p className="text-sm text-muted-foreground mt-1">AI is summarizing and extracting tasks...</p>
+              <p className="font-medium text-foreground">Processing with AI</p>
+              <p className="text-sm text-muted-foreground mt-1">Summarizing and extracting tasks...</p>
             </div>
           </div>
         ) : (
           <>
+            {/* Transcript Preview */}
+            {transcript && (
+              <div className="mb-4 p-3 rounded-xl bg-muted/50 max-h-32 overflow-y-auto">
+                <p className="text-xs font-medium text-muted-foreground mb-1">Transcript</p>
+                <p className="text-sm text-foreground">{transcript}</p>
+              </div>
+            )}
+
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-foreground mb-2 block">
-                  Title
+                  Title (optional - AI will suggest one)
                 </label>
                 <input
                   type="text"

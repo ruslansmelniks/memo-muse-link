@@ -5,6 +5,7 @@ import { MemoCard } from "@/components/MemoCard";
 import { mockMemos } from "@/data/mockData";
 import { Memo } from "@/types/memo";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 export function RecordView() {
   const [showModal, setShowModal] = useState(false);
@@ -12,11 +13,17 @@ export function RecordView() {
   const [recentMemos, setRecentMemos] = useState<Memo[]>(
     mockMemos.filter(m => m.author.name === "You")
   );
-  const [currentBlob, setCurrentBlob] = useState<Blob | null>(null);
+  const [currentTranscript, setCurrentTranscript] = useState("");
   const [currentDuration, setCurrentDuration] = useState(0);
 
-  const handleRecordingComplete = (blob: Blob, duration: number) => {
-    setCurrentBlob(blob);
+  const handleRecordingComplete = (transcript: string, duration: number) => {
+    if (!transcript.trim()) {
+      toast.error("No speech detected", {
+        description: "Please try recording again and speak clearly.",
+      });
+      return;
+    }
+    setCurrentTranscript(transcript);
     setCurrentDuration(duration);
     setShowModal(true);
   };
@@ -24,32 +31,66 @@ export function RecordView() {
   const handleSave = async (data: { title: string; isPublic: boolean }) => {
     setIsProcessing(true);
     
-    // Simulate AI processing
-    await new Promise(resolve => setTimeout(resolve, 2500));
-    
-    const newMemo: Memo = {
-      id: Date.now().toString(),
-      title: data.title,
-      transcript: "This is a simulated transcript of your voice memo...",
-      summary: "AI-generated summary of your recording will appear here.",
-      categories: ["Ideas"],
-      tasks: ["Follow up on this thought", "Research related topics"],
-      isPublic: data.isPublic,
-      createdAt: new Date(),
-      duration: currentDuration,
-      author: { name: "You" },
-      likes: 0,
-      comments: 0,
-    };
+    try {
+      // Call the AI processing edge function
+      const { data: result, error } = await supabase.functions.invoke("process-memo", {
+        body: { transcript: currentTranscript },
+      });
 
-    setRecentMemos([newMemo, ...recentMemos]);
-    setIsProcessing(false);
-    setShowModal(false);
-    setCurrentBlob(null);
-    
-    toast.success("Memo saved!", {
-      description: "AI has summarized and categorized your thoughts.",
-    });
+      if (error) {
+        throw error;
+      }
+
+      const newMemo: Memo = {
+        id: Date.now().toString(),
+        title: data.title || result.title || "Voice Memo",
+        transcript: result.transcript || currentTranscript,
+        summary: result.summary || currentTranscript.slice(0, 150),
+        categories: result.categories || ["Ideas"],
+        tasks: result.tasks || [],
+        isPublic: data.isPublic,
+        createdAt: new Date(),
+        duration: currentDuration,
+        author: { name: "You" },
+        likes: 0,
+        comments: 0,
+      };
+
+      setRecentMemos([newMemo, ...recentMemos]);
+      setShowModal(false);
+      setCurrentTranscript("");
+      
+      toast.success("Memo saved!", {
+        description: `AI extracted ${result.tasks?.length || 0} tasks and categorized as ${result.categories?.join(", ") || "Ideas"}.`,
+      });
+    } catch (error) {
+      console.error("Processing error:", error);
+      toast.error("Processing failed", {
+        description: "Could not process memo. Saving with basic info.",
+      });
+      
+      // Fallback: save without AI processing
+      const newMemo: Memo = {
+        id: Date.now().toString(),
+        title: data.title || "Voice Memo",
+        transcript: currentTranscript,
+        summary: currentTranscript.slice(0, 150) + (currentTranscript.length > 150 ? "..." : ""),
+        categories: ["Ideas"],
+        tasks: [],
+        isPublic: data.isPublic,
+        createdAt: new Date(),
+        duration: currentDuration,
+        author: { name: "You" },
+        likes: 0,
+        comments: 0,
+      };
+
+      setRecentMemos([newMemo, ...recentMemos]);
+      setShowModal(false);
+      setCurrentTranscript("");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -94,6 +135,7 @@ export function RecordView() {
         onClose={() => setShowModal(false)}
         onSave={handleSave}
         isProcessing={isProcessing}
+        transcript={currentTranscript}
       />
     </div>
   );

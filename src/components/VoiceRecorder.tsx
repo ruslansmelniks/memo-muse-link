@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from "react";
 import { Mic, Square, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 
 interface VoiceRecorderProps {
-  onRecordingComplete: (audioBlob: Blob, duration: number) => void;
+  onRecordingComplete: (transcript: string, duration: number) => void;
 }
 
 export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
@@ -13,18 +14,31 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
   const [duration, setDuration] = useState(0);
   const [audioLevels, setAudioLevels] = useState<number[]>(Array(12).fill(0.2));
   
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const animationRef = useRef<number | null>(null);
+
+  const {
+    isListening,
+    transcript,
+    interimTranscript,
+    error: speechError,
+    isSupported,
+    startListening,
+    stopListening,
+    resetTranscript,
+  } = useSpeechRecognition();
 
   useEffect(() => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       if (audioContextRef.current) audioContextRef.current.close();
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
     };
   }, []);
 
@@ -48,6 +62,7 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaStreamRef.current = stream;
       
       audioContextRef.current = new AudioContext();
       analyserRef.current = audioContextRef.current.createAnalyser();
@@ -55,22 +70,12 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
       source.connect(analyserRef.current);
       analyserRef.current.fftSize = 256;
       
-      mediaRecorderRef.current = new MediaRecorder(stream);
-      chunksRef.current = [];
-      
-      mediaRecorderRef.current.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      
-      mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(chunksRef.current, { type: "audio/webm" });
-        onRecordingComplete(audioBlob, duration);
-        stream.getTracks().forEach(track => track.stop());
-      };
-      
-      mediaRecorderRef.current.start();
       setIsRecording(true);
       setDuration(0);
+      resetTranscript();
+      
+      // Start speech recognition
+      startListening();
       
       intervalRef.current = setInterval(() => {
         setDuration(d => d + 1);
@@ -83,29 +88,42 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
+    if (isRecording) {
+      // Stop speech recognition
+      stopListening();
+      
+      // Stop audio visualization
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      
+      // Stop media stream
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      
       setIsRecording(false);
       setIsPaused(false);
       setAudioLevels(Array(12).fill(0.2));
+      
+      // Get the final transcript
+      const finalTranscript = transcript || interimTranscript;
+      if (finalTranscript.trim()) {
+        onRecordingComplete(finalTranscript.trim(), duration);
+      }
     }
   };
 
   const togglePause = () => {
-    if (mediaRecorderRef.current) {
-      if (isPaused) {
-        mediaRecorderRef.current.resume();
-        intervalRef.current = setInterval(() => setDuration(d => d + 1), 1000);
-        updateAudioLevels();
-      } else {
-        mediaRecorderRef.current.pause();
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      }
-      setIsPaused(!isPaused);
+    if (isPaused) {
+      startListening();
+      intervalRef.current = setInterval(() => setDuration(d => d + 1), 1000);
+      updateAudioLevels();
+    } else {
+      stopListening();
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
     }
+    setIsPaused(!isPaused);
   };
 
   const formatTime = (seconds: number) => {
@@ -113,6 +131,8 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
+
+  const displayTranscript = transcript + (interimTranscript ? ` ${interimTranscript}` : "");
 
   return (
     <div className="glass-card rounded-3xl p-8 shadow-medium">
@@ -139,6 +159,15 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
           {formatTime(duration)}
         </div>
 
+        {/* Live Transcript Preview */}
+        {isRecording && displayTranscript && (
+          <div className="w-full max-h-24 overflow-y-auto">
+            <p className="text-sm text-muted-foreground text-center italic">
+              "{displayTranscript}"
+            </p>
+          </div>
+        )}
+
         {/* Controls */}
         <div className="flex items-center gap-4">
           {!isRecording ? (
@@ -147,6 +176,7 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
               size="iconLg"
               onClick={startRecording}
               className="shadow-glow"
+              disabled={!isSupported}
             >
               <Mic className="h-6 w-6" />
             </Button>
@@ -170,13 +200,18 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
           )}
         </div>
 
-        <p className="text-sm text-muted-foreground">
-          {isRecording 
-            ? isPaused 
+        <p className="text-sm text-muted-foreground text-center">
+          {!isSupported ? (
+            <span className="text-destructive">Speech recognition not supported in this browser</span>
+          ) : speechError ? (
+            <span className="text-destructive">{speechError}</span>
+          ) : isRecording ? (
+            isPaused 
               ? "Paused - tap to resume" 
-              : "Recording... tap to stop"
-            : "Tap to start recording your thoughts"
-          }
+              : "Recording & transcribing... tap to stop"
+          ) : (
+            "Tap to start recording your thoughts"
+          )}
         </p>
       </div>
     </div>
