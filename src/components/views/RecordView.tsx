@@ -3,11 +3,13 @@ import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { RecordingModal } from "@/components/RecordingModal";
 import { MemoCard } from "@/components/MemoCard";
 import { AuthModal } from "@/components/AuthModal";
+import { FolderModal } from "@/components/FolderModal";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { LogIn } from "lucide-react";
+import { Folder } from "@/types/folder";
 
 interface Memo {
   id: string;
@@ -24,26 +26,32 @@ interface Memo {
   likes: number;
   comments: number;
   language?: string | null;
+  folderId?: string | null;
 }
 
 export function RecordView() {
   const [showModal, setShowModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showFolderModal, setShowFolderModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStep, setProcessingStep] = useState<"transcribing" | "analyzing" | "saving">("transcribing");
   const [memos, setMemos] = useState<Memo[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [currentTranscript, setCurrentTranscript] = useState("");
   const [currentDuration, setCurrentDuration] = useState(0);
   const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
   const [currentLanguage, setCurrentLanguage] = useState("auto");
+  const [isSavingFolder, setIsSavingFolder] = useState(false);
   
   const { user } = useAuth();
 
   useEffect(() => {
     if (user) {
       loadMemos();
+      loadFolders();
     } else {
       setMemos([]);
+      setFolders([]);
     }
   }, [user]);
 
@@ -76,7 +84,25 @@ export function RecordView() {
         likes: m.likes,
         comments: 0,
         language: m.language,
+        folderId: m.folder_id,
       })));
+    }
+  };
+
+  const loadFolders = async () => {
+    const { data, error } = await supabase
+      .from("folders")
+      .select("*")
+      .eq("user_id", user?.id)
+      .order("name");
+
+    if (error) {
+      console.error("Error loading folders:", error);
+      return;
+    }
+
+    if (data) {
+      setFolders(data);
     }
   };
 
@@ -283,6 +309,89 @@ export function RecordView() {
     }
   };
 
+  const handleToggleVisibility = async (id: string, isPublic: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("memos")
+        .update({ is_public: isPublic })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setMemos(memos.map(m => m.id === id ? { ...m, isPublic } : m));
+      toast.success(isPublic ? "Memo is now public" : "Memo is now private");
+    } catch (error) {
+      console.error("Visibility update error:", error);
+      toast.error("Failed to update visibility");
+    }
+  };
+
+  const handleMoveToFolder = async (memoId: string, folderId: string | null) => {
+    try {
+      const { error } = await supabase
+        .from("memos")
+        .update({ folder_id: folderId })
+        .eq("id", memoId);
+
+      if (error) throw error;
+
+      setMemos(memos.map(m => m.id === memoId ? { ...m, folderId } : m));
+      const folderName = folderId ? folders.find(f => f.id === folderId)?.name : "Unfiled";
+      toast.success(`Moved to ${folderName}`);
+    } catch (error) {
+      console.error("Move to folder error:", error);
+      toast.error("Failed to move memo");
+    }
+  };
+
+  const handleUpdateTitle = async (id: string, newTitle: string) => {
+    try {
+      const { error } = await supabase
+        .from("memos")
+        .update({ title: newTitle })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setMemos(memos.map(m => m.id === id ? { ...m, title: newTitle } : m));
+      toast.success("Title updated");
+    } catch (error) {
+      console.error("Title update error:", error);
+      toast.error("Failed to update title");
+    }
+  };
+
+  const handleCreateFolder = async (data: { name: string; description?: string; icon: string; color: string; is_public: boolean }) => {
+    if (!user) return;
+    
+    setIsSavingFolder(true);
+    try {
+      const { data: newFolder, error } = await supabase
+        .from("folders")
+        .insert({
+          user_id: user.id,
+          name: data.name,
+          description: data.description,
+          icon: data.icon,
+          color: data.color,
+          is_public: data.is_public,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setFolders([...folders, newFolder]);
+      setShowFolderModal(false);
+      toast.success("Folder created");
+    } catch (error) {
+      console.error("Create folder error:", error);
+      toast.error("Failed to create folder");
+    } finally {
+      setIsSavingFolder(false);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-10 pb-32">
       {/* Voice Recorder */}
@@ -325,6 +434,11 @@ export function RecordView() {
                   memo={memo} 
                   canDelete={true}
                   onDelete={handleDeleteMemo}
+                  onUpdateTitle={handleUpdateTitle}
+                  onToggleVisibility={handleToggleVisibility}
+                  onMoveToFolder={handleMoveToFolder}
+                  onCreateFolder={() => setShowFolderModal(true)}
+                  folders={folders}
                 />
               </div>
             ))}
@@ -350,6 +464,13 @@ export function RecordView() {
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
+      />
+      
+      <FolderModal
+        isOpen={showFolderModal}
+        onClose={() => setShowFolderModal(false)}
+        onSave={handleCreateFolder}
+        isLoading={isSavingFolder}
       />
     </div>
   );
