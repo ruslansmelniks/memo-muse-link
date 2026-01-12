@@ -263,14 +263,30 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
               >
                 {isPaused ? <Play className="h-6 w-6" /> : <Pause className="h-6 w-6" />}
               </Button>
-              <Button
-                variant="hero"
-                size="iconLg"
-                onClick={stopRecording}
-                className="w-20 h-20 rounded-full"
+              <motion.div
+                animate={!isPaused ? { 
+                  boxShadow: [
+                    "0 0 20px 8px hsl(var(--destructive) / 0.4)",
+                    "0 0 40px 16px hsl(var(--destructive) / 0.6)",
+                    "0 0 20px 8px hsl(var(--destructive) / 0.4)"
+                  ]
+                } : {}}
+                transition={{
+                  duration: 1.5,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                className="rounded-full"
               >
-                <Square className="h-6 w-6" />
-              </Button>
+                <Button
+                  variant="hero"
+                  size="iconLg"
+                  onClick={stopRecording}
+                  className="w-20 h-20 rounded-full"
+                >
+                  <Square className="h-6 w-6" />
+                </Button>
+              </motion.div>
             </>
           )}
         </div>
