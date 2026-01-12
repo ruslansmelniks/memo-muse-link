@@ -16,9 +16,9 @@ const tabs = [
 
 export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border/30 pb-safe">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-around py-3">
+    <nav className="fixed bottom-0 left-0 right-0 bg-background/98 backdrop-blur-md border-t border-border/20 pb-safe">
+      <div className="container mx-auto px-2">
+        <div className="flex items-center justify-around py-2">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -27,21 +27,20 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
               <motion.button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+                whileTap={{ scale: 0.92 }}
                 className={cn(
-                  "flex flex-col items-center gap-1.5 px-4 py-2 rounded-xl transition-colors duration-200 relative",
+                  "flex flex-col items-center gap-1 min-w-[64px] min-h-[52px] py-1.5 rounded-2xl transition-colors duration-200 relative",
                   isActive 
                     ? "text-foreground" 
-                    : "text-muted-foreground hover:text-foreground"
+                    : "text-muted-foreground active:text-foreground"
                 )}
               >
-                <div className="p-2.5 rounded-xl relative">
+                <div className="p-2 rounded-xl relative">
                   {isActive && (
                     <motion.div
                       layoutId="activeTab"
                       className="absolute inset-0 bg-foreground/10 rounded-xl"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                      transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
                     />
                   )}
                   <Icon className={cn(
@@ -50,8 +49,8 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
                   )} />
                 </div>
                 <span className={cn(
-                  "text-xs",
-                  isActive ? "font-medium" : "font-normal"
+                  "text-[10px] leading-tight",
+                  isActive ? "font-semibold" : "font-medium"
                 )}>{tab.label}</span>
               </motion.button>
             );
