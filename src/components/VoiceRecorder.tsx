@@ -226,17 +226,31 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
         <div className="flex items-center gap-6 pt-2">
           {!isRecording ? (
             <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.92 }}
+              animate={{ 
+                scale: [1, 1.05, 1],
+                boxShadow: [
+                  "0 0 0 0 hsl(var(--primary) / 0.4)",
+                  "0 0 0 16px hsl(var(--primary) / 0)",
+                  "0 0 0 0 hsl(var(--primary) / 0)"
+                ]
+              }}
+              transition={{
+                duration: 2,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              className="rounded-full"
             >
               <Button
                 variant="hero"
                 size="iconLg"
                 onClick={startRecording}
                 disabled={!isSupported}
-                className="w-20 h-20 rounded-full"
+                className="w-28 h-28 rounded-full"
               >
-                <Mic className="h-10 w-10" />
+                <Mic className="h-12 w-12" />
               </Button>
             </motion.div>
           ) : (
