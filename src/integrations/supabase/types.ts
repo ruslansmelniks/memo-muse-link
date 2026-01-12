@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      folders: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_public: boolean
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_public?: boolean
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_public?: boolean
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       memos: {
         Row: {
           audio_url: string | null
@@ -21,6 +57,7 @@ export type Database = {
           categories: string[] | null
           created_at: string
           duration: number
+          folder_id: string | null
           id: string
           is_public: boolean
           language: string | null
@@ -31,6 +68,7 @@ export type Database = {
           transcript: string
           updated_at: string
           user_id: string | null
+          visibility_override: boolean | null
         }
         Insert: {
           audio_url?: string | null
@@ -38,6 +76,7 @@ export type Database = {
           categories?: string[] | null
           created_at?: string
           duration?: number
+          folder_id?: string | null
           id?: string
           is_public?: boolean
           language?: string | null
@@ -48,6 +87,7 @@ export type Database = {
           transcript: string
           updated_at?: string
           user_id?: string | null
+          visibility_override?: boolean | null
         }
         Update: {
           audio_url?: string | null
@@ -55,6 +95,7 @@ export type Database = {
           categories?: string[] | null
           created_at?: string
           duration?: number
+          folder_id?: string | null
           id?: string
           is_public?: boolean
           language?: string | null
@@ -65,8 +106,17 @@ export type Database = {
           transcript?: string
           updated_at?: string
           user_id?: string | null
+          visibility_override?: boolean | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "memos_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {

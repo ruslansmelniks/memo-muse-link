@@ -1,0 +1,248 @@
+import { useState } from "react";
+import { Folder, FOLDER_COLORS, FolderColor, FolderIcon } from "@/types/folder";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
+  Folder as FolderIconLucide, 
+  Briefcase, 
+  Book, 
+  Heart, 
+  Star, 
+  Lightbulb, 
+  Music, 
+  Camera, 
+  Code, 
+  Coffee,
+  Plus,
+  MoreVertical,
+  Pencil,
+  Trash2,
+  Globe,
+  Lock,
+  Inbox,
+  LayoutGrid
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
+
+interface FolderSidebarProps {
+  folders: Folder[];
+  selectedFolderId: string | null;
+  onSelectFolder: (folderId: string | null) => void;
+  onCreateFolder: () => void;
+  onEditFolder: (folder: Folder) => void;
+  onDeleteFolder: (folderId: string) => void;
+  unfiledCount: number;
+  totalCount: number;
+}
+
+const iconComponents: Record<FolderIcon, React.ElementType> = {
+  folder: FolderIconLucide,
+  briefcase: Briefcase,
+  book: Book,
+  heart: Heart,
+  star: Star,
+  lightbulb: Lightbulb,
+  music: Music,
+  camera: Camera,
+  code: Code,
+  coffee: Coffee,
+};
+
+export function FolderSidebar({
+  folders,
+  selectedFolderId,
+  onSelectFolder,
+  onCreateFolder,
+  onEditFolder,
+  onDeleteFolder,
+  unfiledCount,
+  totalCount,
+}: FolderSidebarProps) {
+  const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
+
+  const getColorClass = (colorId: string) => {
+    return FOLDER_COLORS.find(c => c.id === colorId)?.class || "bg-primary";
+  };
+
+  const handleDeleteConfirm = () => {
+    if (folderToDelete) {
+      onDeleteFolder(folderToDelete.id);
+      setFolderToDelete(null);
+    }
+  };
+
+  return (
+    <>
+      <div className="w-full lg:w-64 flex-shrink-0">
+        <div className="bg-card rounded-2xl border border-border/50 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display font-semibold text-sm text-muted-foreground uppercase tracking-wide">
+              Folders
+            </h3>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onCreateFolder}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <ScrollArea className="h-auto max-h-[400px]">
+            <div className="space-y-1">
+              {/* All Memos */}
+              <button
+                onClick={() => onSelectFolder(null)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left",
+                  selectedFolderId === null
+                    ? "bg-primary/10 text-primary"
+                    : "hover:bg-muted text-foreground"
+                )}
+              >
+                <LayoutGrid className="h-4 w-4" />
+                <span className="flex-1 font-medium text-sm">All Memos</span>
+                <span className="text-xs text-muted-foreground">{totalCount}</span>
+              </button>
+
+              {/* Unfiled */}
+              <button
+                onClick={() => onSelectFolder("unfiled")}
+                className={cn(
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left",
+                  selectedFolderId === "unfiled"
+                    ? "bg-primary/10 text-primary"
+                    : "hover:bg-muted text-foreground"
+                )}
+              >
+                <Inbox className="h-4 w-4" />
+                <span className="flex-1 font-medium text-sm">Unfiled</span>
+                <span className="text-xs text-muted-foreground">{unfiledCount}</span>
+              </button>
+
+              {/* Divider */}
+              {folders.length > 0 && (
+                <div className="h-px bg-border my-2" />
+              )}
+
+              {/* Folder List */}
+              {folders.map((folder) => {
+                const IconComponent = iconComponents[folder.icon as FolderIcon] || FolderIconLucide;
+                return (
+                  <div
+                    key={folder.id}
+                    className={cn(
+                      "group flex items-center gap-2 rounded-xl transition-all",
+                      selectedFolderId === folder.id
+                        ? "bg-primary/10"
+                        : "hover:bg-muted"
+                    )}
+                  >
+                    <button
+                      onClick={() => onSelectFolder(folder.id)}
+                      className="flex-1 flex items-center gap-3 px-3 py-2.5 text-left"
+                    >
+                      <div
+                        className={cn(
+                          "w-7 h-7 rounded-lg flex items-center justify-center",
+                          getColorClass(folder.color)
+                        )}
+                      >
+                        <IconComponent className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={cn(
+                              "font-medium text-sm truncate",
+                              selectedFolderId === folder.id
+                                ? "text-primary"
+                                : "text-foreground"
+                            )}
+                          >
+                            {folder.name}
+                          </span>
+                          {folder.is_public ? (
+                            <Globe className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                          ) : (
+                            <Lock className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {folder.memo_count || 0}
+                      </span>
+                    </button>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity mr-1"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => onEditFolder(folder)}>
+                          <Pencil className="h-4 w-4 mr-2" />
+                          Edit folder
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setFolderToDelete(folder)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete folder
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!folderToDelete} onOpenChange={() => setFolderToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete folder?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete the folder "{folderToDelete?.name}". Memos inside will become unfiled but won't be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
