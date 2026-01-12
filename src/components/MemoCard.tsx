@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2, Trash2, MoreVertical } from "lucide-react";
+import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AudioWaveform } from "@/components/AudioWaveform";
 import {
@@ -18,7 +18,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface MemoCardProps {
   memo: {
@@ -69,7 +78,17 @@ export function MemoCard({ memo, variant = "default", onDelete, canDelete = fals
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(memo.duration);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showTranscriptDialog, setShowTranscriptDialog] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleCopyTranscript = async () => {
+    try {
+      await navigator.clipboard.writeText(memo.transcript);
+      toast.success("Transcript copied to clipboard");
+    } catch {
+      toast.error("Failed to copy transcript");
+    }
+  };
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -244,9 +263,18 @@ export function MemoCard({ memo, variant = "default", onDelete, canDelete = fals
         )}
 
         {/* Summary */}
-        <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
+        <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
           {memo.summary || memo.transcript.slice(0, 150)}
         </p>
+
+        {/* View Transcript Button */}
+        <button
+          onClick={() => setShowTranscriptDialog(true)}
+          className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors mb-4"
+        >
+          <FileText className="h-3.5 w-3.5" />
+          View full transcript
+        </button>
 
         {/* Categories */}
         {memo.categories.length > 0 && (
@@ -312,6 +340,27 @@ export function MemoCard({ memo, variant = "default", onDelete, canDelete = fals
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Transcript Dialog */}
+      <Dialog open={showTranscriptDialog} onOpenChange={setShowTranscriptDialog}>
+        <DialogContent className="glass-card max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-display">Full Transcript</DialogTitle>
+            <DialogDescription>{memo.title}</DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="max-h-[60vh] mt-2">
+            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap pr-4">
+              {memo.transcript}
+            </p>
+          </ScrollArea>
+          <div className="flex justify-end mt-4">
+            <Button onClick={handleCopyTranscript} variant="outline" size="sm">
+              <Copy className="h-4 w-4 mr-2" />
+              Copy transcript
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
