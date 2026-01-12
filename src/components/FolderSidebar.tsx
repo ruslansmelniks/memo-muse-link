@@ -21,7 +21,8 @@ import {
   Globe,
   Lock,
   Inbox,
-  LayoutGrid
+  LayoutGrid,
+  Sparkles
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -48,6 +49,7 @@ interface FolderSidebarProps {
   onCreateFolder: () => void;
   onEditFolder: (folder: Folder) => void;
   onDeleteFolder: (folderId: string) => void;
+  onSummarizeFolder?: (folder: Folder) => void;
   unfiledCount: number;
   totalCount: number;
   isDragging?: boolean;
@@ -73,6 +75,7 @@ export function FolderSidebar({
   onCreateFolder,
   onEditFolder,
   onDeleteFolder,
+  onSummarizeFolder,
   unfiledCount,
   totalCount,
   isDragging = false,
@@ -224,6 +227,12 @@ export function FolderSidebar({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            {onSummarizeFolder && (folder.memo_count || 0) > 0 && (
+                              <DropdownMenuItem onClick={() => onSummarizeFolder(folder)}>
+                                <Sparkles className="h-4 w-4 mr-2" />
+                                Summarize folder
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => onEditFolder(folder)}>
                               <Pencil className="h-4 w-4 mr-2" />
                               Edit folder
