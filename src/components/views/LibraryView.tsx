@@ -1,15 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { FolderOpen, Clock, Sparkles, GripVertical } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { MemoCard } from "@/components/MemoCard";
+import { SwipeableMemoCard } from "@/components/SwipeableMemoCard";
 import { FolderSidebar } from "@/components/FolderSidebar";
 import { FolderModal } from "@/components/FolderModal";
 import { FolderSummaryModal } from "@/components/FolderSummaryModal";
+import { PullToRefreshIndicator } from "@/components/PullToRefresh";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Folder } from "@/types/folder";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface FolderSummary {
   overview: string;
@@ -50,6 +54,16 @@ export function LibraryView() {
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summarizingFolder, setSummarizingFolder] = useState<Folder | null>(null);
   const { user } = useAuth();
+  const isMobile = useIsMobile();
+
+  const handleRefresh = useCallback(async () => {
+    await loadData();
+    toast.success("Refreshed");
+  }, []);
+
+  const { containerRef, pullDistance, isRefreshing, progress, shouldRefresh } = usePullToRefresh({
+    onRefresh: handleRefresh,
+  });
 
   useEffect(() => {
     if (user) {
@@ -381,8 +395,20 @@ export function LibraryView() {
 
   return (
     <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="container mx-auto px-4 py-6 pb-32">
-        {/* Header */}
+      <div 
+        ref={containerRef}
+        className="container mx-auto px-4 py-6 pb-32 relative overflow-auto"
+        style={{ 
+          transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
+          transition: pullDistance === 0 ? 'transform 0.2s ease-out' : undefined,
+        }}
+      >
+        <PullToRefreshIndicator
+          pullDistance={pullDistance}
+          isRefreshing={isRefreshing}
+          progress={progress}
+          shouldRefresh={shouldRefresh}
+        />
         <div className="mb-6 animate-fade-in">
           <h2 className="font-display text-3xl font-bold text-foreground mb-2">
             {selectedFolder ? selectedFolder.name : selectedFolderId === "unfiled" ? "Unfiled Memos" : "Your Library"}
@@ -458,42 +484,63 @@ export function LibraryView() {
                       <p className="text-muted-foreground">Loading...</p>
                     </div>
                   ) : filteredMemos.length > 0 ? (
-                    filteredMemos.map((memo, i) => (
-                      <Draggable key={memo.id} draggableId={memo.id} index={i}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            className={cn(
-                              "animate-slide-up",
-                              snapshot.isDragging && "opacity-90 shadow-lg"
-                            )}
-                            style={{
-                              ...provided.draggableProps.style,
-                              animationDelay: `${250 + i * 100}ms`,
-                            }}
-                          >
-                            <div className="relative group">
-                              {/* Drag Handle */}
-                              <div
-                                {...provided.dragHandleProps}
-                                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-8 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing hidden lg:flex items-center justify-center w-6 h-10 rounded-l-lg bg-muted hover:bg-muted/80"
-                              >
-                                <GripVertical className="h-4 w-4 text-muted-foreground" />
+                    isMobile ? (
+                      // Mobile: Swipeable cards
+                      filteredMemos.map((memo, i) => (
+                        <div
+                          key={memo.id}
+                          className="animate-slide-up"
+                          style={{ animationDelay: `${250 + i * 100}ms` }}
+                        >
+                          <SwipeableMemoCard
+                            memo={memo}
+                            canDelete={true}
+                            onDelete={handleDeleteMemo}
+                            onUpdateTitle={handleUpdateTitle}
+                            onMoveToFolder={handleMoveToFolder}
+                            folders={folders}
+                          />
+                        </div>
+                      ))
+                    ) : (
+                      // Desktop: Draggable cards
+                      filteredMemos.map((memo, i) => (
+                        <Draggable key={memo.id} draggableId={memo.id} index={i}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={cn(
+                                "animate-slide-up",
+                                snapshot.isDragging && "opacity-90 shadow-lg"
+                              )}
+                              style={{
+                                ...provided.draggableProps.style,
+                                animationDelay: `${250 + i * 100}ms`,
+                              }}
+                            >
+                              <div className="relative group">
+                                {/* Drag Handle */}
+                                <div
+                                  {...provided.dragHandleProps}
+                                  className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-8 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing flex items-center justify-center w-6 h-10 rounded-l-lg bg-muted hover:bg-muted/80"
+                                >
+                                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                                <MemoCard 
+                                  memo={memo} 
+                                  canDelete={true}
+                                  onDelete={handleDeleteMemo}
+                                  onUpdateTitle={handleUpdateTitle}
+                                  onMoveToFolder={handleMoveToFolder}
+                                  folders={folders}
+                                />
                               </div>
-                              <MemoCard 
-                                memo={memo} 
-                                canDelete={true}
-                                onDelete={handleDeleteMemo}
-                                onUpdateTitle={handleUpdateTitle}
-                                onMoveToFolder={handleMoveToFolder}
-                                folders={folders}
-                              />
                             </div>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))
+                          )}
+                        </Draggable>
+                      ))
+                    )
                   ) : (
                     <div className="text-center py-12">
                       <p className="text-muted-foreground">
@@ -503,7 +550,7 @@ export function LibraryView() {
                       </p>
                     </div>
                   )}
-                  {provided.placeholder}
+                  {!isMobile && provided.placeholder}
                 </div>
               )}
             </Droppable>

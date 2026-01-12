@@ -1,9 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Search, TrendingUp } from "lucide-react";
 import { MemoCard } from "@/components/MemoCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
+import { PullToRefreshIndicator } from "@/components/PullToRefresh";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { categories } from "@/data/mockData";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Memo {
   id: string;
@@ -27,11 +30,7 @@ export function DiscoverView() {
   const [memos, setMemos] = useState<Memo[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadPublicMemos();
-  }, []);
-
-  const loadPublicMemos = async () => {
+  const loadPublicMemos = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("memos")
@@ -60,7 +59,20 @@ export function DiscoverView() {
       })));
     }
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    loadPublicMemos();
+  }, [loadPublicMemos]);
+
+  const handleRefresh = useCallback(async () => {
+    await loadPublicMemos();
+    toast.success("Refreshed");
+  }, [loadPublicMemos]);
+
+  const { containerRef, pullDistance, isRefreshing, progress, shouldRefresh } = usePullToRefresh({
+    onRefresh: handleRefresh,
+  });
   
   const filteredMemos = memos.filter(memo => {
     const matchesCategory = !selectedCategory || 
@@ -74,8 +86,20 @@ export function DiscoverView() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-6 pb-32">
-      {/* Header */}
+    <div 
+      ref={containerRef}
+      className="container mx-auto px-4 py-6 pb-32 relative overflow-auto"
+      style={{ 
+        transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
+        transition: pullDistance === 0 ? 'transform 0.2s ease-out' : undefined,
+      }}
+    >
+      <PullToRefreshIndicator
+        pullDistance={pullDistance}
+        isRefreshing={isRefreshing}
+        progress={progress}
+        shouldRefresh={shouldRefresh}
+      />
       <div className="mb-6 animate-fade-in">
         <h2 className="font-display text-3xl font-bold text-foreground mb-2">
           Discover Ideas
