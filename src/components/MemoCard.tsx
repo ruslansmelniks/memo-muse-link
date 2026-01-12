@@ -1,10 +1,27 @@
-import { Heart, MessageCircle, Globe, Lock, Play, CheckCircle2 } from "lucide-react";
-import { Memo } from "@/types/memo";
+import { useState, useRef } from "react";
+import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface MemoCardProps {
-  memo: Memo;
+  memo: {
+    id: string;
+    title: string;
+    audioUrl?: string | null;
+    transcript: string;
+    summary: string | null;
+    categories: string[];
+    tasks: string[];
+    isPublic: boolean;
+    createdAt: Date;
+    duration: number;
+    author: {
+      name: string;
+      avatar?: string;
+    };
+    likes: number;
+    comments: number;
+  };
   variant?: "default" | "compact";
 }
 
@@ -18,9 +35,13 @@ const categoryColors: Record<string, string> = {
 };
 
 export function MemoCard({ memo, variant = "default" }: MemoCardProps) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
@@ -35,6 +56,30 @@ export function MemoCard({ memo, variant = "default" }: MemoCardProps) {
     if (diffHours < 24) return `${diffHours}h ago`;
     return `${diffDays}d ago`;
   };
+
+  const togglePlayback = () => {
+    if (!memo.audioUrl) return;
+
+    if (!audioRef.current) {
+      audioRef.current = new Audio(memo.audioUrl);
+      audioRef.current.ontimeupdate = () => {
+        setCurrentTime(audioRef.current?.currentTime || 0);
+      };
+      audioRef.current.onended = () => {
+        setIsPlaying(false);
+        setCurrentTime(0);
+      };
+    }
+
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const progress = memo.duration > 0 ? (currentTime / memo.duration) * 100 : 0;
 
   return (
     <div 
@@ -65,34 +110,61 @@ export function MemoCard({ memo, variant = "default" }: MemoCardProps) {
 
       {/* Title & Play */}
       <div className="flex items-center gap-3 mb-3">
-        <button className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors">
-          <Play className="h-4 w-4 text-primary ml-0.5" />
+        <button 
+          onClick={togglePlayback}
+          disabled={!memo.audioUrl}
+          className={cn(
+            "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
+            memo.audioUrl 
+              ? "bg-primary/10 hover:bg-primary/20 cursor-pointer" 
+              : "bg-muted cursor-not-allowed"
+          )}
+        >
+          {isPlaying ? (
+            <Pause className="h-4 w-4 text-primary" />
+          ) : (
+            <Play className="h-4 w-4 text-primary ml-0.5" />
+          )}
         </button>
         <div className="flex-1">
           <h3 className="font-display font-semibold text-foreground">{memo.title}</h3>
-          <p className="text-xs text-muted-foreground">{formatDuration(memo.duration)}</p>
+          <div className="flex items-center gap-2">
+            <p className="text-xs text-muted-foreground">
+              {isPlaying ? formatDuration(currentTime) : formatDuration(memo.duration)}
+            </p>
+            {memo.audioUrl && (
+              <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden max-w-20">
+                <div 
+                  className="h-full gradient-primary transition-all duration-200"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Summary */}
       <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-        {memo.summary}
+        {memo.summary || memo.transcript.slice(0, 150)}
       </p>
 
       {/* Categories */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {memo.categories.map((category) => (
-          <span
-            key={category}
-            className={cn(
-              "px-3 py-1 rounded-full text-xs font-medium",
-              categoryColors[category] || "bg-muted text-muted-foreground"
-            )}
-          >
-            {category}
-          </span>
-        ))}
-      </div>
+      {memo.categories.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-4">
+          {memo.categories.map((category) => (
+            <span
+              key={category}
+              className={cn(
+                "px-3 py-1 rounded-full text-xs font-medium",
+                categoryColors[category] || "bg-muted text-muted-foreground"
+              )}
+            >
+              {category}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Tasks */}
       {memo.tasks.length > 0 && (

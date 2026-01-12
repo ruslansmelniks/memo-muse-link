@@ -14,7 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      memos: {
+        Row: {
+          audio_url: string | null
+          author_name: string
+          categories: string[] | null
+          created_at: string
+          duration: number
+          id: string
+          is_public: boolean
+          likes: number
+          summary: string | null
+          tasks: string[] | null
+          title: string
+          transcript: string
+          updated_at: string
+        }
+        Insert: {
+          audio_url?: string | null
+          author_name?: string
+          categories?: string[] | null
+          created_at?: string
+          duration?: number
+          id?: string
+          is_public?: boolean
+          likes?: number
+          summary?: string | null
+          tasks?: string[] | null
+          title: string
+          transcript: string
+          updated_at?: string
+        }
+        Update: {
+          audio_url?: string | null
+          author_name?: string
+          categories?: string[] | null
+          created_at?: string
+          duration?: number
+          id?: string
+          is_public?: boolean
+          likes?: number
+          summary?: string | null
+          tasks?: string[] | null
+          title?: string
+          transcript?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
