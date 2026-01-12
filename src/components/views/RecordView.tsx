@@ -116,7 +116,7 @@ export function RecordView() {
     }
   };
 
-  const handleSave = async (data: { title: string; isPublic: boolean }) => {
+  const handleSave = async (data: { title: string; isPublic: boolean; folderId?: string | null }) => {
     if (!user) {
       toast.error("Please sign in to save memos");
       return;
@@ -210,6 +210,7 @@ export function RecordView() {
           duration: currentDuration,
           author_name: user.email?.split("@")[0] || "User",
           language: result.language || detectedLanguage,
+          folder_id: data.folderId || null,
         })
         .select()
         .single();

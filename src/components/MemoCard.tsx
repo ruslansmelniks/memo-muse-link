@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy, Pencil, Check, X } from "lucide-react";
+import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy, Pencil, Check, X, FolderInput, Folder as FolderIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AudioWaveform } from "@/components/AudioWaveform";
 import {
@@ -7,6 +7,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -28,6 +32,20 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { Folder, FOLDER_COLORS, FolderIcon as FolderIconType } from "@/types/folder";
+import { 
+  Folder as FolderIconLucide, 
+  Briefcase, 
+  Book, 
+  Heart as HeartIcon, 
+  Star, 
+  Lightbulb, 
+  Music, 
+  Camera, 
+  Code, 
+  Coffee,
+  Inbox
+} from "lucide-react";
 
 interface MemoCardProps {
   memo: {
@@ -48,10 +66,13 @@ interface MemoCardProps {
     likes: number;
     comments: number;
     language?: string | null;
+    folderId?: string | null;
   };
   variant?: "default" | "compact";
   onDelete?: (id: string) => void;
   onUpdateTitle?: (id: string, newTitle: string) => void;
+  onMoveToFolder?: (memoId: string, folderId: string | null) => void;
+  folders?: Folder[];
   canDelete?: boolean;
 }
 
@@ -74,7 +95,20 @@ const categoryColors: Record<string, string> = {
   Creative: "bg-lavender-50 text-lavender-300",
 };
 
-export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, canDelete = false }: MemoCardProps) {
+const iconComponents: Record<FolderIconType, React.ElementType> = {
+  folder: FolderIconLucide,
+  briefcase: Briefcase,
+  book: Book,
+  heart: HeartIcon,
+  star: Star,
+  lightbulb: Lightbulb,
+  music: Music,
+  camera: Camera,
+  code: Code,
+  coffee: Coffee,
+};
+
+export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, onMoveToFolder, folders = [], canDelete = false }: MemoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(memo.duration);
@@ -83,6 +117,8 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, c
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(memo.title);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const currentFolder = folders.find(f => f.id === memo.folderId);
 
   const handleSaveTitle = () => {
     const trimmedTitle = editedTitle.trim();
@@ -184,6 +220,10 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, c
     setShowDeleteDialog(false);
   };
 
+  const getColorClass = (colorId: string) => {
+    return FOLDER_COLORS.find(c => c.id === colorId)?.class || "bg-primary";
+  };
+
   return (
     <>
       <div 
@@ -234,6 +274,42 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, c
                       Edit title
                     </DropdownMenuItem>
                   )}
+                  {onMoveToFolder && folders.length > 0 && (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger>
+                        <FolderInput className="h-4 w-4 mr-2" />
+                        Move to folder
+                      </DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuItem 
+                          onClick={() => onMoveToFolder(memo.id, null)}
+                          className={cn(!memo.folderId && "bg-muted")}
+                        >
+                          <Inbox className="h-4 w-4 mr-2" />
+                          Unfiled
+                          {!memo.folderId && <Check className="h-4 w-4 ml-auto" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        {folders.map(folder => {
+                          const IconComponent = iconComponents[folder.icon as FolderIconType] || FolderIconLucide;
+                          return (
+                            <DropdownMenuItem 
+                              key={folder.id}
+                              onClick={() => onMoveToFolder(memo.id, folder.id)}
+                              className={cn(memo.folderId === folder.id && "bg-muted")}
+                            >
+                              <div className={cn("w-5 h-5 rounded flex items-center justify-center mr-2", getColorClass(folder.color))}>
+                                <IconComponent className="h-3 w-3 text-white" />
+                              </div>
+                              {folder.name}
+                              {memo.folderId === folder.id && <Check className="h-4 w-4 ml-auto" />}
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  )}
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={() => setShowDeleteDialog(true)}
                     className="text-destructive focus:text-destructive"
@@ -246,6 +322,21 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, c
             )}
           </div>
         </div>
+
+        {/* Folder Badge */}
+        {currentFolder && (
+          <div className="flex items-center gap-1.5 mb-2">
+            {(() => {
+              const IconComponent = iconComponents[currentFolder.icon as FolderIconType] || FolderIconLucide;
+              return (
+                <div className={cn("w-4 h-4 rounded flex items-center justify-center", getColorClass(currentFolder.color))}>
+                  <IconComponent className="h-2.5 w-2.5 text-white" />
+                </div>
+              );
+            })()}
+            <span className="text-xs text-muted-foreground">{currentFolder.name}</span>
+          </div>
+        )}
 
         {/* Title */}
         {isEditingTitle ? (

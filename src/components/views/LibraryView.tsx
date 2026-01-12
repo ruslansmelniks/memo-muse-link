@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
-import { FolderOpen, Clock, Heart, CheckCircle2, Trash2 } from "lucide-react";
+import { FolderOpen, Clock, Heart, CheckCircle2 } from "lucide-react";
 import { MemoCard } from "@/components/MemoCard";
+import { FolderSidebar } from "@/components/FolderSidebar";
+import { FolderModal } from "@/components/FolderModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { Folder } from "@/types/folder";
 
 interface Memo {
   id: string;
@@ -20,6 +23,7 @@ interface Memo {
   author: { name: string };
   likes: number;
   comments: number;
+  folderId?: string | null;
 }
 
 const tabs = [
@@ -32,20 +36,31 @@ const tabs = [
 export function LibraryView() {
   const [activeTab, setActiveTab] = useState("all");
   const [memos, setMemos] = useState<Memo[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [showFolderModal, setShowFolderModal] = useState(false);
+  const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
+  const [isSavingFolder, setIsSavingFolder] = useState(false);
   const { user } = useAuth();
 
   useEffect(() => {
     if (user) {
-      loadMemos();
+      loadData();
     } else {
       setMemos([]);
+      setFolders([]);
       setLoading(false);
     }
   }, [user]);
 
-  const loadMemos = async () => {
+  const loadData = async () => {
     setLoading(true);
+    await Promise.all([loadMemos(), loadFolders()]);
+    setLoading(false);
+  };
+
+  const loadMemos = async () => {
     const { data, error } = await supabase
       .from("memos")
       .select("*")
@@ -69,10 +84,39 @@ export function LibraryView() {
         author: { name: "You" },
         likes: m.likes,
         comments: 0,
+        folderId: m.folder_id,
       })));
     }
-    setLoading(false);
   };
+
+  const loadFolders = async () => {
+    const { data, error } = await supabase
+      .from("folders")
+      .select("*")
+      .eq("user_id", user?.id)
+      .order("name");
+
+    if (error) {
+      console.error("Error loading folders:", error);
+    } else if (data) {
+      // Add memo counts
+      const foldersWithCounts = data.map(f => ({
+        ...f,
+        memo_count: memos.filter(m => m.folderId === f.id).length
+      }));
+      setFolders(foldersWithCounts as Folder[]);
+    }
+  };
+
+  // Recalculate folder counts when memos change
+  useEffect(() => {
+    if (folders.length > 0) {
+      setFolders(prev => prev.map(f => ({
+        ...f,
+        memo_count: memos.filter(m => m.folderId === f.id).length
+      })));
+    }
+  }, [memos]);
 
   const handleDeleteMemo = async (id: string) => {
     try {
@@ -117,22 +161,129 @@ export function LibraryView() {
     }
   };
 
+  const handleMoveToFolder = async (memoId: string, folderId: string | null) => {
+    try {
+      const { error } = await supabase
+        .from("memos")
+        .update({ folder_id: folderId })
+        .eq("id", memoId);
+
+      if (error) throw error;
+
+      setMemos(memos.map(m => m.id === memoId ? { ...m, folderId } : m));
+      toast.success(folderId ? "Moved to folder" : "Removed from folder");
+    } catch (error) {
+      console.error("Move error:", error);
+      toast.error("Failed to move memo");
+    }
+  };
+
+  const handleCreateFolder = () => {
+    setEditingFolder(null);
+    setShowFolderModal(true);
+  };
+
+  const handleEditFolder = (folder: Folder) => {
+    setEditingFolder(folder);
+    setShowFolderModal(true);
+  };
+
+  const handleSaveFolder = async (data: { 
+    name: string; 
+    description?: string; 
+    icon: string; 
+    color: string; 
+    is_public: boolean 
+  }) => {
+    setIsSavingFolder(true);
+    try {
+      if (editingFolder) {
+        const { error } = await supabase
+          .from("folders")
+          .update(data)
+          .eq("id", editingFolder.id);
+
+        if (error) throw error;
+
+        setFolders(folders.map(f => 
+          f.id === editingFolder.id ? { ...f, ...data } : f
+        ));
+        toast.success("Folder updated");
+      } else {
+        const { data: newFolder, error } = await supabase
+          .from("folders")
+          .insert({ ...data, user_id: user?.id })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setFolders([...folders, { ...newFolder, memo_count: 0 } as Folder]);
+        toast.success("Folder created");
+      }
+      setShowFolderModal(false);
+    } catch (error) {
+      console.error("Folder save error:", error);
+      toast.error("Failed to save folder");
+    } finally {
+      setIsSavingFolder(false);
+    }
+  };
+
+  const handleDeleteFolder = async (folderId: string) => {
+    try {
+      const { error } = await supabase
+        .from("folders")
+        .delete()
+        .eq("id", folderId);
+
+      if (error) throw error;
+
+      setFolders(folders.filter(f => f.id !== folderId));
+      // Memos become unfiled (handled by ON DELETE SET NULL in DB)
+      setMemos(memos.map(m => m.folderId === folderId ? { ...m, folderId: null } : m));
+      
+      if (selectedFolderId === folderId) {
+        setSelectedFolderId(null);
+      }
+      toast.success("Folder deleted");
+    } catch (error) {
+      console.error("Delete folder error:", error);
+      toast.error("Failed to delete folder");
+    }
+  };
+
   const getFilteredMemos = () => {
+    let filtered = memos;
+
+    // First filter by folder
+    if (selectedFolderId === "unfiled") {
+      filtered = filtered.filter(m => !m.folderId);
+    } else if (selectedFolderId) {
+      filtered = filtered.filter(m => m.folderId === selectedFolderId);
+    }
+
+    // Then apply tab filter
     switch (activeTab) {
       case "recent":
-        return [...memos].slice(0, 5);
+        return filtered.slice(0, 5);
       case "public":
-        return memos.filter(m => m.isPublic);
+        return filtered.filter(m => m.isPublic);
       case "tasks":
-        return memos.filter(m => m.tasks.length > 0);
+        return filtered.filter(m => m.tasks.length > 0);
       default:
-        return memos;
+        return filtered;
     }
   };
 
   const filteredMemos = getFilteredMemos();
   const totalDuration = memos.reduce((acc, m) => acc + m.duration, 0);
   const totalTasks = memos.reduce((acc, m) => acc + m.tasks.length, 0);
+  const unfiledCount = memos.filter(m => !m.folderId).length;
+
+  const selectedFolder = selectedFolderId && selectedFolderId !== "unfiled" 
+    ? folders.find(f => f.id === selectedFolderId) 
+    : null;
 
   if (!user) {
     return (
@@ -151,91 +302,124 @@ export function LibraryView() {
       {/* Header */}
       <div className="mb-6 animate-fade-in">
         <h2 className="font-display text-3xl font-bold text-foreground mb-2">
-          Your Library
+          {selectedFolder ? selectedFolder.name : selectedFolderId === "unfiled" ? "Unfiled Memos" : "Your Library"}
         </h2>
         <p className="text-muted-foreground">
-          {memos.length} memos · {totalTasks} tasks extracted
+          {selectedFolder || selectedFolderId === "unfiled" 
+            ? `${filteredMemos.length} memos`
+            : `${memos.length} memos · ${totalTasks} tasks extracted`
+          }
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 mb-6 overflow-x-auto pb-2 animate-fade-in" style={{ animationDelay: "100ms" }}>
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200",
-                isActive
-                  ? "gradient-primary text-primary-foreground shadow-soft"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Folder Sidebar */}
+        <FolderSidebar
+          folders={folders}
+          selectedFolderId={selectedFolderId}
+          onSelectFolder={setSelectedFolderId}
+          onCreateFolder={handleCreateFolder}
+          onEditFolder={handleEditFolder}
+          onDeleteFolder={handleDeleteFolder}
+          unfiledCount={unfiledCount}
+          totalCount={memos.length}
+        />
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="glass-card rounded-2xl p-4 animate-fade-in" style={{ animationDelay: "150ms" }}>
-          <div className="w-10 h-10 rounded-xl gradient-mint flex items-center justify-center mb-2">
-            <Clock className="h-5 w-5 text-mint-400" />
+        {/* Main Content */}
+        <div className="flex-1">
+          {/* Tabs */}
+          <div className="flex gap-2 mb-6 overflow-x-auto pb-2 animate-fade-in" style={{ animationDelay: "100ms" }}>
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200",
+                    isActive
+                      ? "gradient-primary text-primary-foreground shadow-soft"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
-          <p className="text-2xl font-display font-bold text-foreground">
-            {Math.round(totalDuration / 60)}m
-          </p>
-          <p className="text-xs text-muted-foreground">Total recorded</p>
-        </div>
-        
-        <div className="glass-card rounded-2xl p-4 animate-fade-in" style={{ animationDelay: "200ms" }}>
-          <div className="w-10 h-10 rounded-xl gradient-lavender flex items-center justify-center mb-2">
-            <CheckCircle2 className="h-5 w-5 text-lavender-400" />
-          </div>
-          <p className="text-2xl font-display font-bold text-foreground">
-            {totalTasks}
-          </p>
-          <p className="text-xs text-muted-foreground">Tasks extracted</p>
-        </div>
-      </div>
 
-      {/* Memos List */}
-      <div className="space-y-4">
-        {loading ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Loading...</p>
-          </div>
-        ) : filteredMemos.length > 0 ? (
-          filteredMemos.map((memo, i) => (
-            <div 
-              key={memo.id}
-              style={{ animationDelay: `${250 + i * 100}ms` }}
-              className="animate-slide-up"
-            >
-              <MemoCard 
-                memo={memo} 
-                canDelete={true}
-                onDelete={handleDeleteMemo}
-                onUpdateTitle={handleUpdateTitle}
-              />
+          {/* Stats Cards - Only show when viewing all */}
+          {!selectedFolderId && (
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="glass-card rounded-2xl p-4 animate-fade-in" style={{ animationDelay: "150ms" }}>
+                <div className="w-10 h-10 rounded-xl gradient-mint flex items-center justify-center mb-2">
+                  <Clock className="h-5 w-5 text-mint-400" />
+                </div>
+                <p className="text-2xl font-display font-bold text-foreground">
+                  {Math.round(totalDuration / 60)}m
+                </p>
+                <p className="text-xs text-muted-foreground">Total recorded</p>
+              </div>
+              
+              <div className="glass-card rounded-2xl p-4 animate-fade-in" style={{ animationDelay: "200ms" }}>
+                <div className="w-10 h-10 rounded-xl gradient-lavender flex items-center justify-center mb-2">
+                  <CheckCircle2 className="h-5 w-5 text-lavender-400" />
+                </div>
+                <p className="text-2xl font-display font-bold text-foreground">
+                  {totalTasks}
+                </p>
+                <p className="text-xs text-muted-foreground">Tasks extracted</p>
+              </div>
             </div>
-          ))
-        ) : (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">
-              {activeTab === "all" 
-                ? "No memos yet. Start recording!" 
-                : "No memos match this filter"}
-            </p>
+          )}
+
+          {/* Memos List */}
+          <div className="space-y-4">
+            {loading ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Loading...</p>
+              </div>
+            ) : filteredMemos.length > 0 ? (
+              filteredMemos.map((memo, i) => (
+                <div 
+                  key={memo.id}
+                  style={{ animationDelay: `${250 + i * 100}ms` }}
+                  className="animate-slide-up"
+                >
+                  <MemoCard 
+                    memo={memo} 
+                    canDelete={true}
+                    onDelete={handleDeleteMemo}
+                    onUpdateTitle={handleUpdateTitle}
+                    onMoveToFolder={handleMoveToFolder}
+                    folders={folders}
+                  />
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">
+                  {activeTab === "all" 
+                    ? "No memos yet. Start recording!" 
+                    : "No memos match this filter"}
+                </p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
+
+      {/* Folder Modal */}
+      <FolderModal
+        isOpen={showFolderModal}
+        onClose={() => setShowFolderModal(false)}
+        onSave={handleSaveFolder}
+        folder={editingFolder}
+        isLoading={isSavingFolder}
+      />
     </div>
   );
 }
