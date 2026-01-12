@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { FolderOpen, Clock, Heart, CheckCircle2 } from "lucide-react";
+import { FolderOpen, Clock, Heart, CheckCircle2, Trash2 } from "lucide-react";
 import { MemoCard } from "@/components/MemoCard";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Memo {
   id: string;
@@ -23,7 +25,7 @@ interface Memo {
 const tabs = [
   { id: "all", label: "All", icon: FolderOpen },
   { id: "recent", label: "Recent", icon: Clock },
-  { id: "favorites", label: "Favorites", icon: Heart },
+  { id: "public", label: "Public", icon: Heart },
   { id: "tasks", label: "With Tasks", icon: CheckCircle2 },
 ];
 
@@ -31,16 +33,23 @@ export function LibraryView() {
   const [activeTab, setActiveTab] = useState("all");
   const [memos, setMemos] = useState<Memo[]>([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
 
   useEffect(() => {
-    loadMemos();
-  }, []);
+    if (user) {
+      loadMemos();
+    } else {
+      setMemos([]);
+      setLoading(false);
+    }
+  }, [user]);
 
   const loadMemos = async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("memos")
       .select("*")
+      .eq("user_id", user?.id)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -57,7 +66,7 @@ export function LibraryView() {
         isPublic: m.is_public,
         createdAt: new Date(m.created_at),
         duration: m.duration,
-        author: { name: m.author_name },
+        author: { name: "You" },
         likes: m.likes,
         comments: 0,
       })));
@@ -65,12 +74,38 @@ export function LibraryView() {
     setLoading(false);
   };
 
+  const handleDeleteMemo = async (id: string) => {
+    try {
+      const memo = memos.find(m => m.id === id);
+      
+      const { error } = await supabase
+        .from("memos")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      if (memo?.audioUrl) {
+        const path = memo.audioUrl.split("/audio-memos/")[1];
+        if (path) {
+          await supabase.storage.from("audio-memos").remove([path]);
+        }
+      }
+
+      setMemos(memos.filter(m => m.id !== id));
+      toast.success("Memo deleted");
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast.error("Failed to delete memo");
+    }
+  };
+
   const getFilteredMemos = () => {
     switch (activeTab) {
       case "recent":
         return [...memos].slice(0, 5);
-      case "favorites":
-        return memos.filter(m => m.likes > 0);
+      case "public":
+        return memos.filter(m => m.isPublic);
       case "tasks":
         return memos.filter(m => m.tasks.length > 0);
       default:
@@ -81,6 +116,18 @@ export function LibraryView() {
   const filteredMemos = getFilteredMemos();
   const totalDuration = memos.reduce((acc, m) => acc + m.duration, 0);
   const totalTasks = memos.reduce((acc, m) => acc + m.tasks.length, 0);
+
+  if (!user) {
+    return (
+      <div className="container mx-auto px-4 py-6 pb-32">
+        <div className="text-center py-12">
+          <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="font-display font-semibold text-lg mb-2">Your Library</h3>
+          <p className="text-muted-foreground">Sign in to view your saved memos</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-6 pb-32">
@@ -154,12 +201,20 @@ export function LibraryView() {
               style={{ animationDelay: `${250 + i * 100}ms` }}
               className="animate-slide-up"
             >
-              <MemoCard memo={memo} />
+              <MemoCard 
+                memo={memo} 
+                canDelete={true}
+                onDelete={handleDeleteMemo}
+              />
             </div>
           ))
         ) : (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No memos found</p>
+            <p className="text-muted-foreground">
+              {activeTab === "all" 
+                ? "No memos yet. Start recording!" 
+                : "No memos match this filter"}
+            </p>
           </div>
         )}
       </div>

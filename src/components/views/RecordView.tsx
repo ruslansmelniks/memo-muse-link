@@ -192,6 +192,35 @@ export function RecordView() {
     }
   };
 
+  const handleDeleteMemo = async (id: string) => {
+    try {
+      // Find the memo to get audio URL for cleanup
+      const memo = memos.find(m => m.id === id);
+      
+      // Delete from database
+      const { error } = await supabase
+        .from("memos")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      // Try to delete audio file if exists
+      if (memo?.audioUrl) {
+        const path = memo.audioUrl.split("/audio-memos/")[1];
+        if (path) {
+          await supabase.storage.from("audio-memos").remove([path]);
+        }
+      }
+
+      setMemos(memos.filter(m => m.id !== id));
+      toast.success("Memo deleted");
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast.error("Failed to delete memo");
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-6 pb-32">
       {/* Hero Section */}
@@ -236,7 +265,11 @@ export function RecordView() {
                 style={{ animationDelay: `${i * 100}ms` }}
                 className="animate-slide-up"
               >
-                <MemoCard memo={memo} />
+                <MemoCard 
+                  memo={memo} 
+                  canDelete={true}
+                  onDelete={handleDeleteMemo}
+                />
               </div>
             ))}
           </div>
