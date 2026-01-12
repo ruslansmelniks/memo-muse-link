@@ -113,6 +113,9 @@ export function RecordView() {
     try {
       // Upload audio file if available
       let audioUrl: string | null = null;
+      let transcriptToProcess = currentTranscript;
+      let detectedLanguage = currentLanguage;
+      
       if (currentAudioBlob) {
         const fileName = `${user.id}/memo-${Date.now()}.webm`;
         const { data: uploadData, error: uploadError } = await supabase.storage
@@ -129,11 +132,44 @@ export function RecordView() {
             .getPublicUrl(uploadData.path);
           audioUrl = urlData.publicUrl;
         }
+        
+        // Use ElevenLabs for higher-accuracy transcription
+        try {
+          toast.info("Processing audio with ElevenLabs...", { duration: 2000 });
+          
+          const formData = new FormData();
+          formData.append("audio", currentAudioBlob, "recording.webm");
+          formData.append("language", currentLanguage);
+          
+          const transcribeResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-transcribe`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              },
+              body: formData,
+            }
+          );
+          
+          if (transcribeResponse.ok) {
+            const transcription = await transcribeResponse.json();
+            if (transcription.text && transcription.text.trim()) {
+              transcriptToProcess = transcription.text;
+              detectedLanguage = transcription.language || currentLanguage;
+              console.log("ElevenLabs transcription:", transcription);
+            }
+          } else {
+            console.warn("ElevenLabs transcription failed, using browser transcript");
+          }
+        } catch (transcribeError) {
+          console.warn("ElevenLabs transcription error, using browser transcript:", transcribeError);
+        }
       }
 
       // Call the AI processing edge function
       const { data: result, error } = await supabase.functions.invoke("process-memo", {
-        body: { transcript: currentTranscript, language: currentLanguage },
+        body: { transcript: transcriptToProcess, language: detectedLanguage },
       });
 
       if (error) {
@@ -146,15 +182,15 @@ export function RecordView() {
         .insert({
           user_id: user.id,
           title: data.title || result.title || "Voice Memo",
-          transcript: result.transcript || currentTranscript,
-          summary: result.summary || currentTranscript.slice(0, 150),
+          transcript: result.transcript || transcriptToProcess,
+          summary: result.summary || transcriptToProcess.slice(0, 150),
           categories: result.categories || ["Ideas"],
           tasks: result.tasks || [],
           is_public: data.isPublic,
           audio_url: audioUrl,
           duration: currentDuration,
           author_name: user.email?.split("@")[0] || "User",
-          language: result.language || currentLanguage,
+          language: result.language || detectedLanguage,
         })
         .select()
         .single();
