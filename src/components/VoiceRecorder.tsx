@@ -236,7 +236,7 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
                 disabled={!isSupported}
                 className="w-20 h-20 rounded-full"
               >
-                <Mic className="h-8 w-8" />
+                <Mic className="h-10 w-10" />
               </Button>
             </motion.div>
           ) : (
