@@ -1,8 +1,24 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FolderOpen, Clock, Heart, CheckCircle2 } from "lucide-react";
 import { MemoCard } from "@/components/MemoCard";
-import { mockMemos } from "@/data/mockData";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+
+interface Memo {
+  id: string;
+  title: string;
+  audioUrl?: string | null;
+  transcript: string;
+  summary: string | null;
+  categories: string[];
+  tasks: string[];
+  isPublic: boolean;
+  createdAt: Date;
+  duration: number;
+  author: { name: string };
+  likes: number;
+  comments: number;
+}
 
 const tabs = [
   { id: "all", label: "All", icon: FolderOpen },
@@ -13,23 +29,58 @@ const tabs = [
 
 export function LibraryView() {
   const [activeTab, setActiveTab] = useState("all");
+  const [memos, setMemos] = useState<Memo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadMemos();
+  }, []);
+
+  const loadMemos = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("memos")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error loading memos:", error);
+    } else if (data) {
+      setMemos(data.map(m => ({
+        id: m.id,
+        title: m.title,
+        audioUrl: m.audio_url,
+        transcript: m.transcript,
+        summary: m.summary,
+        categories: m.categories || [],
+        tasks: m.tasks || [],
+        isPublic: m.is_public,
+        createdAt: new Date(m.created_at),
+        duration: m.duration,
+        author: { name: m.author_name },
+        likes: m.likes,
+        comments: 0,
+      })));
+    }
+    setLoading(false);
+  };
 
   const getFilteredMemos = () => {
     switch (activeTab) {
       case "recent":
-        return [...mockMemos].sort((a, b) => 
-          b.createdAt.getTime() - a.createdAt.getTime()
-        ).slice(0, 5);
+        return [...memos].slice(0, 5);
       case "favorites":
-        return mockMemos.filter(m => m.likes > 10);
+        return memos.filter(m => m.likes > 0);
       case "tasks":
-        return mockMemos.filter(m => m.tasks.length > 0);
+        return memos.filter(m => m.tasks.length > 0);
       default:
-        return mockMemos;
+        return memos;
     }
   };
 
   const filteredMemos = getFilteredMemos();
+  const totalDuration = memos.reduce((acc, m) => acc + m.duration, 0);
+  const totalTasks = memos.reduce((acc, m) => acc + m.tasks.length, 0);
 
   return (
     <div className="container mx-auto px-4 py-6 pb-32">
@@ -39,7 +90,7 @@ export function LibraryView() {
           Your Library
         </h2>
         <p className="text-muted-foreground">
-          {mockMemos.length} memos · {mockMemos.filter(m => m.tasks.length > 0).reduce((acc, m) => acc + m.tasks.length, 0)} tasks extracted
+          {memos.length} memos · {totalTasks} tasks extracted
         </p>
       </div>
 
@@ -74,7 +125,7 @@ export function LibraryView() {
             <Clock className="h-5 w-5 text-mint-400" />
           </div>
           <p className="text-2xl font-display font-bold text-foreground">
-            {Math.round(mockMemos.reduce((acc, m) => acc + m.duration, 0) / 60)}m
+            {Math.round(totalDuration / 60)}m
           </p>
           <p className="text-xs text-muted-foreground">Total recorded</p>
         </div>
@@ -84,7 +135,7 @@ export function LibraryView() {
             <CheckCircle2 className="h-5 w-5 text-lavender-400" />
           </div>
           <p className="text-2xl font-display font-bold text-foreground">
-            {mockMemos.reduce((acc, m) => acc + m.tasks.length, 0)}
+            {totalTasks}
           </p>
           <p className="text-xs text-muted-foreground">Tasks extracted</p>
         </div>
@@ -92,15 +143,25 @@ export function LibraryView() {
 
       {/* Memos List */}
       <div className="space-y-4">
-        {filteredMemos.map((memo, i) => (
-          <div 
-            key={memo.id}
-            style={{ animationDelay: `${250 + i * 100}ms` }}
-            className="animate-slide-up"
-          >
-            <MemoCard memo={memo} />
+        {loading ? (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">Loading...</p>
           </div>
-        ))}
+        ) : filteredMemos.length > 0 ? (
+          filteredMemos.map((memo, i) => (
+            <div 
+              key={memo.id}
+              style={{ animationDelay: `${250 + i * 100}ms` }}
+              className="animate-slide-up"
+            >
+              <MemoCard memo={memo} />
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">No memos found</p>
+          </div>
+        )}
       </div>
     </div>
   );

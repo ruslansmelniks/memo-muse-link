@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 
 interface VoiceRecorderProps {
-  onRecordingComplete: (transcript: string, duration: number) => void;
+  onRecordingComplete: (transcript: string, duration: number, audioBlob: Blob | null) => void;
 }
 
 export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
@@ -15,13 +15,14 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
   const [audioLevels, setAudioLevels] = useState<number[]>(Array(12).fill(0.2));
   
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const animationRef = useRef<number | null>(null);
 
   const {
-    isListening,
     transcript,
     interimTranscript,
     error: speechError,
@@ -64,6 +65,20 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
       
+      // Set up audio recording
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+      
+      mediaRecorder.start();
+      
+      // Set up audio visualization
       audioContextRef.current = new AudioContext();
       analyserRef.current = audioContextRef.current.createAnalyser();
       const source = audioContextRef.current.createMediaStreamSource(stream);
@@ -88,9 +103,20 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
   };
 
   const stopRecording = () => {
-    if (isRecording) {
+    if (isRecording && mediaRecorderRef.current) {
       // Stop speech recognition
       stopListening();
+      
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const finalTranscript = transcript || interimTranscript;
+        
+        if (finalTranscript.trim()) {
+          onRecordingComplete(finalTranscript.trim(), duration, audioBlob);
+        }
+      };
+      
+      mediaRecorderRef.current.stop();
       
       // Stop audio visualization
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -104,21 +130,19 @@ export function VoiceRecorder({ onRecordingComplete }: VoiceRecorderProps) {
       setIsRecording(false);
       setIsPaused(false);
       setAudioLevels(Array(12).fill(0.2));
-      
-      // Get the final transcript
-      const finalTranscript = transcript || interimTranscript;
-      if (finalTranscript.trim()) {
-        onRecordingComplete(finalTranscript.trim(), duration);
-      }
     }
   };
 
   const togglePause = () => {
+    if (!mediaRecorderRef.current) return;
+    
     if (isPaused) {
+      mediaRecorderRef.current.resume();
       startListening();
       intervalRef.current = setInterval(() => setDuration(d => d + 1), 1000);
       updateAudioLevels();
     } else {
+      mediaRecorderRef.current.pause();
       stopListening();
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (animationRef.current) cancelAnimationFrame(animationRef.current);

@@ -1,23 +1,75 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, TrendingUp } from "lucide-react";
 import { MemoCard } from "@/components/MemoCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
-import { mockMemos, categories } from "@/data/mockData";
+import { categories } from "@/data/mockData";
+import { supabase } from "@/integrations/supabase/client";
+
+interface Memo {
+  id: string;
+  title: string;
+  audioUrl?: string | null;
+  transcript: string;
+  summary: string | null;
+  categories: string[];
+  tasks: string[];
+  isPublic: boolean;
+  createdAt: Date;
+  duration: number;
+  author: { name: string };
+  likes: number;
+  comments: number;
+}
 
 export function DiscoverView() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [memos, setMemos] = useState<Memo[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const publicMemos = mockMemos.filter(m => m.isPublic);
+  useEffect(() => {
+    loadPublicMemos();
+  }, []);
+
+  const loadPublicMemos = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("memos")
+      .select("*")
+      .eq("is_public", true)
+      .order("created_at", { ascending: false })
+      .limit(50);
+
+    if (error) {
+      console.error("Error loading memos:", error);
+    } else if (data) {
+      setMemos(data.map(m => ({
+        id: m.id,
+        title: m.title,
+        audioUrl: m.audio_url,
+        transcript: m.transcript,
+        summary: m.summary,
+        categories: m.categories || [],
+        tasks: m.tasks || [],
+        isPublic: m.is_public,
+        createdAt: new Date(m.created_at),
+        duration: m.duration,
+        author: { name: m.author_name },
+        likes: m.likes,
+        comments: 0,
+      })));
+    }
+    setLoading(false);
+  };
   
-  const filteredMemos = publicMemos.filter(memo => {
+  const filteredMemos = memos.filter(memo => {
     const matchesCategory = !selectedCategory || 
       memo.categories.some(c => 
         categories.find(cat => cat.id === selectedCategory)?.name === c
       );
     const matchesSearch = !searchQuery || 
       memo.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      memo.summary.toLowerCase().includes(searchQuery.toLowerCase());
+      (memo.summary || "").toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
 
@@ -77,19 +129,27 @@ export function DiscoverView() {
 
       {/* Memos Grid */}
       <div className="space-y-4">
-        {filteredMemos.map((memo, i) => (
-          <div 
-            key={memo.id}
-            style={{ animationDelay: `${250 + i * 100}ms` }}
-            className="animate-slide-up"
-          >
-            <MemoCard memo={memo} />
-          </div>
-        ))}
-        
-        {filteredMemos.length === 0 && (
+        {loading ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No memos found matching your criteria</p>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        ) : filteredMemos.length > 0 ? (
+          filteredMemos.map((memo, i) => (
+            <div 
+              key={memo.id}
+              style={{ animationDelay: `${250 + i * 100}ms` }}
+              className="animate-slide-up"
+            >
+              <MemoCard memo={memo} />
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">
+              {searchQuery || selectedCategory 
+                ? "No memos found matching your criteria" 
+                : "No public memos yet. Be the first to share!"}
+            </p>
           </div>
         )}
       </div>
