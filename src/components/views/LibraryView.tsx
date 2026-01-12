@@ -100,6 +100,23 @@ export function LibraryView() {
     }
   };
 
+  const handleUpdateTitle = async (id: string, newTitle: string) => {
+    try {
+      const { error } = await supabase
+        .from("memos")
+        .update({ title: newTitle })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setMemos(memos.map(m => m.id === id ? { ...m, title: newTitle } : m));
+      toast.success("Title updated");
+    } catch (error) {
+      console.error("Update error:", error);
+      toast.error("Failed to update title");
+    }
+  };
+
   const getFilteredMemos = () => {
     switch (activeTab) {
       case "recent":
@@ -205,6 +222,7 @@ export function LibraryView() {
                 memo={memo} 
                 canDelete={true}
                 onDelete={handleDeleteMemo}
+                onUpdateTitle={handleUpdateTitle}
               />
             </div>
           ))
