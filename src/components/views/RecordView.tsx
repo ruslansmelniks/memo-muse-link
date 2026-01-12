@@ -80,14 +80,19 @@ export function RecordView() {
   };
 
   const handleRecordingComplete = (transcript: string, duration: number, audioBlob: Blob | null, language: string) => {
-    if (!transcript.trim()) {
-      toast.error("No speech detected", {
-        description: "Please try recording again and speak clearly.",
+    // Require at least some audio to be recorded
+    if (duration < 1) {
+      toast.error("Recording too short", {
+        description: "Please record for at least 1 second.",
       });
       return;
     }
     
     if (!user) {
+      setCurrentTranscript(transcript);
+      setCurrentDuration(duration);
+      setCurrentAudioBlob(audioBlob);
+      setCurrentLanguage(language);
       setShowAuthModal(true);
       toast.info("Sign in required", {
         description: "Create an account to save your memos.",
@@ -95,11 +100,19 @@ export function RecordView() {
       return;
     }
     
+    // Always show modal - ElevenLabs will transcribe even if browser STT failed
     setCurrentTranscript(transcript);
     setCurrentDuration(duration);
     setCurrentAudioBlob(audioBlob);
     setCurrentLanguage(language);
     setShowModal(true);
+    
+    // Show helpful toast about what happens next
+    if (!transcript.trim()) {
+      toast.info("Processing your recording...", {
+        description: "AI will transcribe and summarize your audio.",
+      });
+    }
   };
 
   const handleSave = async (data: { title: string; isPublic: boolean }) => {

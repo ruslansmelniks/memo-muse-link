@@ -110,13 +110,16 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
       // Stop speech recognition
       stopListening();
       
+      // Capture duration before we reset
+      const finalDuration = duration;
+      
       mediaRecorderRef.current.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         const finalTranscript = transcript || interimTranscript;
         
-        if (finalTranscript.trim()) {
-          onRecordingComplete(finalTranscript.trim(), duration, audioBlob, selectedLanguage);
-        }
+        // Always call onRecordingComplete - ElevenLabs will do the transcription
+        // even if browser speech recognition failed
+        onRecordingComplete(finalTranscript.trim(), finalDuration, audioBlob, selectedLanguage);
       };
       
       mediaRecorderRef.current.stop();
@@ -239,11 +242,7 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
         </div>
 
         <p className="text-sm text-muted-foreground text-center">
-          {!isSupported ? (
-            <span className="text-destructive">Speech recognition not supported in this browser</span>
-          ) : speechError ? (
-            <span className="text-destructive">{speechError}</span>
-          ) : isRecording ? (
+          {isRecording ? (
             isPaused 
               ? "Paused - tap to resume" 
               : `Recording in ${selectedLangDisplay?.name || "Auto"}... tap to stop`
@@ -251,6 +250,11 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
             "Tap to start recording your thoughts"
           )}
         </p>
+        {speechError && !isRecording && (
+          <p className="text-xs text-muted-foreground/70 text-center mt-1">
+            Live preview unavailable • Audio will be transcribed after recording
+          </p>
+        )}
       </div>
     </div>
   );
