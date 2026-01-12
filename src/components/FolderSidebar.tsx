@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Folder, FOLDER_COLORS, FolderColor, FolderIcon } from "@/types/folder";
+import { Droppable } from "@hello-pangea/dnd";
+import { Folder, FOLDER_COLORS, FolderIcon } from "@/types/folder";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
@@ -49,6 +50,7 @@ interface FolderSidebarProps {
   onDeleteFolder: (folderId: string) => void;
   unfiledCount: number;
   totalCount: number;
+  isDragging?: boolean;
 }
 
 const iconComponents: Record<FolderIcon, React.ElementType> = {
@@ -73,6 +75,7 @@ export function FolderSidebar({
   onDeleteFolder,
   unfiledCount,
   totalCount,
+  isDragging = false,
 }: FolderSidebarProps) {
   const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
 
@@ -90,10 +93,13 @@ export function FolderSidebar({
   return (
     <>
       <div className="w-full lg:w-64 flex-shrink-0">
-        <div className="bg-card rounded-2xl border border-border/50 p-4">
+        <div className={cn(
+          "bg-card rounded-2xl border border-border/50 p-4 transition-all",
+          isDragging && "ring-2 ring-primary/30"
+        )}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-              Folders
+              {isDragging ? "Drop here" : "Folders"}
             </h3>
             <Button
               variant="ghost"
@@ -107,7 +113,7 @@ export function FolderSidebar({
 
           <ScrollArea className="h-auto max-h-[400px]">
             <div className="space-y-1">
-              {/* All Memos */}
+              {/* All Memos - Not a drop target */}
               <button
                 onClick={() => onSelectFolder(null)}
                 className={cn(
@@ -122,100 +128,119 @@ export function FolderSidebar({
                 <span className="text-xs text-muted-foreground">{totalCount}</span>
               </button>
 
-              {/* Unfiled */}
-              <button
-                onClick={() => onSelectFolder("unfiled")}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left",
-                  selectedFolderId === "unfiled"
-                    ? "bg-primary/10 text-primary"
-                    : "hover:bg-muted text-foreground"
+              {/* Unfiled - Drop target */}
+              <Droppable droppableId="unfiled">
+                {(provided, snapshot) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.droppableProps}
+                  >
+                    <button
+                      onClick={() => onSelectFolder("unfiled")}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left",
+                        selectedFolderId === "unfiled"
+                          ? "bg-primary/10 text-primary"
+                          : "hover:bg-muted text-foreground",
+                        snapshot.isDraggingOver && "bg-primary/20 ring-2 ring-primary"
+                      )}
+                    >
+                      <Inbox className="h-4 w-4" />
+                      <span className="flex-1 font-medium text-sm">Unfiled</span>
+                      <span className="text-xs text-muted-foreground">{unfiledCount}</span>
+                    </button>
+                    <div className="hidden">{provided.placeholder}</div>
+                  </div>
                 )}
-              >
-                <Inbox className="h-4 w-4" />
-                <span className="flex-1 font-medium text-sm">Unfiled</span>
-                <span className="text-xs text-muted-foreground">{unfiledCount}</span>
-              </button>
+              </Droppable>
 
               {/* Divider */}
               {folders.length > 0 && (
                 <div className="h-px bg-border my-2" />
               )}
 
-              {/* Folder List */}
+              {/* Folder List - Each is a drop target */}
               {folders.map((folder) => {
                 const IconComponent = iconComponents[folder.icon as FolderIcon] || FolderIconLucide;
                 return (
-                  <div
-                    key={folder.id}
-                    className={cn(
-                      "group flex items-center gap-2 rounded-xl transition-all",
-                      selectedFolderId === folder.id
-                        ? "bg-primary/10"
-                        : "hover:bg-muted"
-                    )}
-                  >
-                    <button
-                      onClick={() => onSelectFolder(folder.id)}
-                      className="flex-1 flex items-center gap-3 px-3 py-2.5 text-left"
-                    >
+                  <Droppable key={folder.id} droppableId={folder.id}>
+                    {(provided, snapshot) => (
                       <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
                         className={cn(
-                          "w-7 h-7 rounded-lg flex items-center justify-center",
-                          getColorClass(folder.color)
+                          "group flex items-center gap-2 rounded-xl transition-all",
+                          selectedFolderId === folder.id
+                            ? "bg-primary/10"
+                            : "hover:bg-muted",
+                          snapshot.isDraggingOver && "bg-primary/20 ring-2 ring-primary"
                         )}
                       >
-                        <IconComponent className="h-4 w-4 text-white" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <span
+                        <button
+                          onClick={() => onSelectFolder(folder.id)}
+                          className="flex-1 flex items-center gap-3 px-3 py-2.5 text-left"
+                        >
+                          <div
                             className={cn(
-                              "font-medium text-sm truncate",
-                              selectedFolderId === folder.id
-                                ? "text-primary"
-                                : "text-foreground"
+                              "w-7 h-7 rounded-lg flex items-center justify-center transition-transform",
+                              getColorClass(folder.color),
+                              snapshot.isDraggingOver && "scale-110"
                             )}
                           >
-                            {folder.name}
+                            <IconComponent className="h-4 w-4 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className={cn(
+                                  "font-medium text-sm truncate",
+                                  selectedFolderId === folder.id
+                                    ? "text-primary"
+                                    : "text-foreground"
+                                )}
+                              >
+                                {folder.name}
+                              </span>
+                              {folder.is_public ? (
+                                <Globe className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                              ) : (
+                                <Lock className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {folder.memo_count || 0}
                           </span>
-                          {folder.is_public ? (
-                            <Globe className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                          ) : (
-                            <Lock className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                          )}
-                        </div>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {folder.memo_count || 0}
-                      </span>
-                    </button>
+                        </button>
 
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity mr-1"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEditFolder(folder)}>
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Edit folder
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setFolderToDelete(folder)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete folder
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity mr-1"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => onEditFolder(folder)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit folder
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setFolderToDelete(folder)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete folder
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <div className="hidden">{provided.placeholder}</div>
+                      </div>
+                    )}
+                  </Droppable>
                 );
               })}
             </div>
