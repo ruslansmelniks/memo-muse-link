@@ -270,8 +270,8 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
             {canDelete && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreVertical className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" className="h-11 w-11 min-h-[44px] min-w-[44px]">
+                    <MoreVertical className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -410,9 +410,8 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
             <div className="flex items-center gap-4">
               <motion.button 
                 onClick={togglePlayback}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="w-10 h-10 rounded-full bg-foreground/10 flex items-center justify-center hover:bg-foreground/15 transition-colors flex-shrink-0"
+                whileTap={{ scale: 0.92 }}
+                className="w-12 h-12 min-w-[48px] min-h-[48px] rounded-full bg-foreground/10 flex items-center justify-center active:bg-foreground/20 transition-colors flex-shrink-0"
               >
                 {isPlaying ? (
                   <Pause className="h-4 w-4 text-foreground" />
