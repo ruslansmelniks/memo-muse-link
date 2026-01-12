@@ -30,6 +30,7 @@ export function RecordView() {
   const [showModal, setShowModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [processingStep, setProcessingStep] = useState<"transcribing" | "analyzing" | "saving">("transcribing");
   const [memos, setMemos] = useState<Memo[]>([]);
   const [currentTranscript, setCurrentTranscript] = useState("");
   const [currentDuration, setCurrentDuration] = useState(0);
@@ -122,6 +123,7 @@ export function RecordView() {
     }
     
     setIsProcessing(true);
+    setProcessingStep("transcribing");
     
     try {
       // Upload audio file if available
@@ -148,8 +150,6 @@ export function RecordView() {
         
         // Use ElevenLabs for higher-accuracy transcription
         try {
-          toast.info("Processing audio with ElevenLabs...", { duration: 2000 });
-          
           const formData = new FormData();
           formData.append("audio", currentAudioBlob, "recording.webm");
           formData.append("language", currentLanguage);
@@ -180,6 +180,9 @@ export function RecordView() {
         }
       }
 
+      // Step 2: AI Analysis
+      setProcessingStep("analyzing");
+
       // Call the AI processing edge function
       const { data: result, error } = await supabase.functions.invoke("process-memo", {
         body: { transcript: transcriptToProcess, language: detectedLanguage },
@@ -189,6 +192,9 @@ export function RecordView() {
         throw error;
       }
 
+      // Step 3: Save to database
+      setProcessingStep("saving");
+      
       // Save to database with user_id
       const { data: savedMemo, error: dbError } = await supabase
         .from("memos")
@@ -342,6 +348,7 @@ export function RecordView() {
         onClose={() => setShowModal(false)}
         onSave={handleSave}
         isProcessing={isProcessing}
+        processingStep={processingStep}
         transcript={currentTranscript}
       />
       

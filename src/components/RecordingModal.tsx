@@ -1,17 +1,32 @@
 import { useState } from "react";
-import { X, Globe, Lock, Sparkles, Loader2 } from "lucide-react";
+import { X, Globe, Lock, Sparkles, Loader2, Mic, Brain, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
 
 interface RecordingModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (data: { title: string; isPublic: boolean }) => void;
   isProcessing?: boolean;
+  processingStep?: "transcribing" | "analyzing" | "saving";
   transcript?: string;
 }
 
-export function RecordingModal({ isOpen, onClose, onSave, isProcessing, transcript }: RecordingModalProps) {
+const PROCESSING_STEPS = [
+  { key: "transcribing", label: "Transcribing audio", icon: Mic },
+  { key: "analyzing", label: "AI summarizing", icon: Brain },
+  { key: "saving", label: "Saving memo", icon: FileText },
+] as const;
+
+export function RecordingModal({ 
+  isOpen, 
+  onClose, 
+  onSave, 
+  isProcessing, 
+  processingStep = "transcribing",
+  transcript 
+}: RecordingModalProps) {
   const [title, setTitle] = useState("");
   const [isPublic, setIsPublic] = useState(false);
 
@@ -23,41 +38,100 @@ export function RecordingModal({ isOpen, onClose, onSave, isProcessing, transcri
     setIsPublic(false);
   };
 
+  const currentStepIndex = PROCESSING_STEPS.findIndex(s => s.key === processingStep);
+
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
       <div 
         className="absolute inset-0 bg-foreground/20 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={isProcessing ? undefined : onClose}
       />
       
       <div className="relative w-full max-w-lg glass-card rounded-t-3xl sm:rounded-3xl p-6 animate-slide-up">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="font-display font-semibold text-xl">Save Recording</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-5 w-5" />
-          </Button>
+          <h2 className="font-display font-semibold text-xl">
+            {isProcessing ? "Processing Recording" : "Save Recording"}
+          </h2>
+          {!isProcessing && (
+            <Button variant="ghost" size="icon" onClick={onClose}>
+              <X className="h-5 w-5" />
+            </Button>
+          )}
         </div>
 
         {isProcessing ? (
-          <div className="py-12 flex flex-col items-center gap-4">
-            <div className="relative">
-              <div className="w-16 h-16 rounded-full gradient-primary animate-pulse-soft" />
-              <Loader2 className="absolute inset-0 m-auto h-8 w-8 text-primary-foreground animate-spin" />
+          <div className="py-8">
+            {/* Progress steps */}
+            <div className="space-y-4 mb-8">
+              {PROCESSING_STEPS.map((step, index) => {
+                const Icon = step.icon;
+                const isActive = index === currentStepIndex;
+                const isComplete = index < currentStepIndex;
+                
+                return (
+                  <div 
+                    key={step.key}
+                    className={cn(
+                      "flex items-center gap-4 p-3 rounded-xl transition-all",
+                      isActive && "bg-primary/10",
+                      isComplete && "opacity-60"
+                    )}
+                  >
+                    <div className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center transition-all",
+                      isActive && "gradient-primary",
+                      isComplete && "bg-primary/20",
+                      !isActive && !isComplete && "bg-muted"
+                    )}>
+                      {isActive ? (
+                        <Loader2 className="h-5 w-5 text-primary-foreground animate-spin" />
+                      ) : isComplete ? (
+                        <Icon className="h-5 w-5 text-primary" />
+                      ) : (
+                        <Icon className="h-5 w-5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div>
+                      <p className={cn(
+                        "font-medium",
+                        isActive && "text-foreground",
+                        isComplete && "text-muted-foreground",
+                        !isActive && !isComplete && "text-muted-foreground"
+                      )}>
+                        {step.label}
+                      </p>
+                      {isActive && (
+                        <p className="text-xs text-muted-foreground animate-pulse">
+                          {step.key === "transcribing" && "Using ElevenLabs AI..."}
+                          {step.key === "analyzing" && "Extracting insights..."}
+                          {step.key === "saving" && "Almost done..."}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div className="text-center">
-              <p className="font-medium text-foreground">Processing with AI</p>
-              <p className="text-sm text-muted-foreground mt-1">Summarizing and extracting tasks...</p>
+            
+            {/* Progress bar */}
+            <div className="h-1 bg-muted rounded-full overflow-hidden">
+              <div 
+                className="h-full gradient-primary transition-all duration-500"
+                style={{ width: `${((currentStepIndex + 1) / PROCESSING_STEPS.length) * 100}%` }}
+              />
             </div>
           </div>
         ) : (
           <>
             {/* Transcript Preview */}
-            {transcript && (
-              <div className="mb-4 p-3 rounded-xl bg-muted/50 max-h-32 overflow-y-auto">
-                <p className="text-xs font-medium text-muted-foreground mb-1">Transcript</p>
-                <p className="text-sm text-foreground">{transcript}</p>
-              </div>
-            )}
+            <div className="mb-4 p-3 rounded-xl bg-muted/50 max-h-32 overflow-y-auto">
+              <p className="text-xs font-medium text-muted-foreground mb-1">
+                {transcript ? "Transcript preview" : "Audio recorded"}
+              </p>
+              <p className="text-sm text-foreground">
+                {transcript || "Your audio will be transcribed with AI after saving."}
+              </p>
+            </div>
 
             <div className="space-y-4">
               <div>
