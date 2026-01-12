@@ -1,6 +1,7 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AudioWaveform } from "@/components/AudioWaveform";
 import { cn } from "@/lib/utils";
 
 interface MemoCardProps {
@@ -37,6 +38,7 @@ const categoryColors: Record<string, string> = {
 export function MemoCard({ memo, variant = "default" }: MemoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(memo.duration);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const formatDuration = (seconds: number) => {
@@ -57,29 +59,50 @@ export function MemoCard({ memo, variant = "default" }: MemoCardProps) {
     return `${diffDays}d ago`;
   };
 
+  const initAudio = useCallback(() => {
+    if (!memo.audioUrl || audioRef.current) return audioRef.current;
+    
+    const audio = new Audio(memo.audioUrl);
+    audio.ontimeupdate = () => {
+      setCurrentTime(audio.currentTime);
+    };
+    audio.onloadedmetadata = () => {
+      setAudioDuration(audio.duration);
+    };
+    audio.onended = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+    };
+    audioRef.current = audio;
+    return audio;
+  }, [memo.audioUrl]);
+
   const togglePlayback = () => {
     if (!memo.audioUrl) return;
 
-    if (!audioRef.current) {
-      audioRef.current = new Audio(memo.audioUrl);
-      audioRef.current.ontimeupdate = () => {
-        setCurrentTime(audioRef.current?.currentTime || 0);
-      };
-      audioRef.current.onended = () => {
-        setIsPlaying(false);
-        setCurrentTime(0);
-      };
-    }
+    const audio = initAudio();
+    if (!audio) return;
 
     if (isPlaying) {
-      audioRef.current.pause();
+      audio.pause();
     } else {
-      audioRef.current.play();
+      audio.play();
     }
     setIsPlaying(!isPlaying);
   };
 
-  const progress = memo.duration > 0 ? (currentTime / memo.duration) * 100 : 0;
+  const handleSeek = useCallback((time: number) => {
+    const audio = initAudio();
+    if (!audio) return;
+    
+    audio.currentTime = time;
+    setCurrentTime(time);
+    
+    if (!isPlaying) {
+      audio.play();
+      setIsPlaying(true);
+    }
+  }, [initAudio, isPlaying]);
 
   return (
     <div 
@@ -108,41 +131,50 @@ export function MemoCard({ memo, variant = "default" }: MemoCardProps) {
         </div>
       </div>
 
-      {/* Title & Play */}
-      <div className="flex items-center gap-3 mb-3">
-        <button 
-          onClick={togglePlayback}
-          disabled={!memo.audioUrl}
-          className={cn(
-            "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
-            memo.audioUrl 
-              ? "bg-primary/10 hover:bg-primary/20 cursor-pointer" 
-              : "bg-muted cursor-not-allowed"
-          )}
-        >
-          {isPlaying ? (
-            <Pause className="h-4 w-4 text-primary" />
-          ) : (
-            <Play className="h-4 w-4 text-primary ml-0.5" />
-          )}
-        </button>
-        <div className="flex-1">
-          <h3 className="font-display font-semibold text-foreground">{memo.title}</h3>
-          <div className="flex items-center gap-2">
-            <p className="text-xs text-muted-foreground">
-              {isPlaying ? formatDuration(currentTime) : formatDuration(memo.duration)}
-            </p>
-            {memo.audioUrl && (
-              <div className="flex-1 h-1 bg-muted rounded-full overflow-hidden max-w-20">
-                <div 
-                  className="h-full gradient-primary transition-all duration-200"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            )}
+      {/* Title */}
+      <h3 className="font-display font-semibold text-foreground mb-3">{memo.title}</h3>
+
+      {/* Audio Player with Waveform */}
+      {memo.audioUrl && (
+        <div className="bg-muted/30 rounded-xl p-3 mb-4">
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={togglePlayback}
+              className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center shadow-soft hover:shadow-glow transition-shadow flex-shrink-0"
+            >
+              {isPlaying ? (
+                <Pause className="h-4 w-4 text-primary-foreground" />
+              ) : (
+                <Play className="h-4 w-4 text-primary-foreground ml-0.5" />
+              )}
+            </button>
+            
+            <div className="flex-1 min-w-0">
+              <AudioWaveform
+                audioUrl={memo.audioUrl}
+                isPlaying={isPlaying}
+                currentTime={currentTime}
+                duration={audioDuration}
+                onSeek={handleSeek}
+              />
+            </div>
+            
+            <div className="text-xs text-muted-foreground font-medium flex-shrink-0">
+              {formatDuration(currentTime)} / {formatDuration(audioDuration)}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* No audio fallback */}
+      {!memo.audioUrl && (
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
+            <Play className="h-4 w-4 text-muted-foreground ml-0.5" />
+          </div>
+          <p className="text-xs text-muted-foreground">No audio available</p>
+        </div>
+      )}
 
       {/* Summary */}
       <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
