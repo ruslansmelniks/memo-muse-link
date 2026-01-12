@@ -1,3 +1,4 @@
+import { motion } from "framer-motion";
 import { Mic, Compass, FolderOpen, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,22 +24,28 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
             const isActive = activeTab === tab.id;
             
             return (
-              <button
+              <motion.button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 className={cn(
-                  "flex flex-col items-center gap-1.5 px-4 py-2 rounded-xl transition-all duration-200",
+                  "flex flex-col items-center gap-1.5 px-4 py-2 rounded-xl transition-colors duration-200 relative",
                   isActive 
                     ? "text-foreground" 
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <div className={cn(
-                  "p-2.5 rounded-xl transition-all duration-200",
-                  isActive && "bg-foreground/10"
-                )}>
+                <div className="p-2.5 rounded-xl relative">
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeTab"
+                      className="absolute inset-0 bg-foreground/10 rounded-xl"
+                      transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+                    />
+                  )}
                   <Icon className={cn(
-                    "h-5 w-5",
+                    "h-5 w-5 relative z-10",
                     isActive && "stroke-[2.5]"
                   )} />
                 </div>
@@ -46,7 +53,7 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
                   "text-xs",
                   isActive ? "font-medium" : "font-normal"
                 )}>{tab.label}</span>
-              </button>
+              </motion.button>
             );
           })}
         </div>

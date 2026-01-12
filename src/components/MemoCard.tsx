@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import { motion } from "framer-motion";
 import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy, Pencil, Check, X, FolderInput, Folder as FolderIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AudioWaveform } from "@/components/AudioWaveform";
@@ -226,9 +227,13 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
 
   return (
     <>
-      <div 
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        whileHover={{ y: -2 }}
         className={cn(
-          "bg-card rounded-2xl p-6 border border-border/50 transition-all duration-300 animate-fade-in hover:border-border",
+          "bg-card rounded-2xl p-6 border border-border/50 transition-colors duration-200 hover:border-border",
           variant === "compact" && "p-5"
         )}
       >
@@ -364,8 +369,10 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
         {memo.audioUrl && (
           <div className="bg-muted/30 rounded-xl p-4 mb-5">
             <div className="flex items-center gap-4">
-              <button 
+              <motion.button 
                 onClick={togglePlayback}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 className="w-10 h-10 rounded-full bg-foreground/10 flex items-center justify-center hover:bg-foreground/15 transition-colors flex-shrink-0"
               >
                 {isPlaying ? (
@@ -373,7 +380,7 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
                 ) : (
                   <Play className="h-4 w-4 text-foreground ml-0.5" />
                 )}
-              </button>
+              </motion.button>
               
               <div className="flex-1 min-w-0">
                 <AudioWaveform
@@ -458,7 +465,7 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
             </Button>
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>

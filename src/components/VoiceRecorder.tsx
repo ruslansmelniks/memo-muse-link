@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Mic, Square, Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -167,7 +168,12 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
   const selectedLangDisplay = SUPPORTED_LANGUAGES.find(l => l.code === selectedLanguage);
 
   return (
-    <div className="bg-muted/30 rounded-3xl p-10 border border-border/50">
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="bg-muted/30 rounded-3xl p-10 border border-border/50"
+    >
       <div className="flex flex-col items-center space-y-8">
         {/* Language Selector */}
         <div className="w-full flex justify-center">
@@ -212,15 +218,20 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
         {/* Controls */}
         <div className="flex items-center gap-6 pt-2">
           {!isRecording ? (
-            <Button
-              variant="hero"
-              size="iconLg"
-              onClick={startRecording}
-              disabled={!isSupported}
-              className="w-20 h-20 rounded-full"
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
             >
-              <Mic className="h-8 w-8" />
-            </Button>
+              <Button
+                variant="hero"
+                size="iconLg"
+                onClick={startRecording}
+                disabled={!isSupported}
+                className="w-20 h-20 rounded-full"
+              >
+                <Mic className="h-8 w-8" />
+              </Button>
+            </motion.div>
           ) : (
             <>
               <Button
@@ -258,6 +269,6 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
           </p>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
