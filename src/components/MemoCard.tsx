@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy } from "lucide-react";
+import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AudioWaveform } from "@/components/AudioWaveform";
 import {
@@ -51,6 +51,7 @@ interface MemoCardProps {
   };
   variant?: "default" | "compact";
   onDelete?: (id: string) => void;
+  onUpdateTitle?: (id: string, newTitle: string) => void;
   canDelete?: boolean;
 }
 
@@ -73,13 +74,36 @@ const categoryColors: Record<string, string> = {
   Creative: "bg-lavender-50 text-lavender-300",
 };
 
-export function MemoCard({ memo, variant = "default", onDelete, canDelete = false }: MemoCardProps) {
+export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, canDelete = false }: MemoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(memo.duration);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showTranscriptDialog, setShowTranscriptDialog] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState(memo.title);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleSaveTitle = () => {
+    const trimmedTitle = editedTitle.trim();
+    if (trimmedTitle && trimmedTitle !== memo.title && onUpdateTitle) {
+      onUpdateTitle(memo.id, trimmedTitle);
+    }
+    setIsEditingTitle(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditedTitle(memo.title);
+    setIsEditingTitle(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSaveTitle();
+    } else if (e.key === "Escape") {
+      handleCancelEdit();
+    }
+  };
 
   const handleCopyTranscript = async () => {
     try {
@@ -204,6 +228,12 @@ export function MemoCard({ memo, variant = "default", onDelete, canDelete = fals
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {onUpdateTitle && (
+                    <DropdownMenuItem onClick={() => setIsEditingTitle(true)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit title
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem 
                     onClick={() => setShowDeleteDialog(true)}
                     className="text-destructive focus:text-destructive"
@@ -218,7 +248,26 @@ export function MemoCard({ memo, variant = "default", onDelete, canDelete = fals
         </div>
 
         {/* Title */}
-        <h3 className="font-display font-semibold text-foreground mb-3">{memo.title}</h3>
+        {isEditingTitle ? (
+          <div className="flex items-center gap-2 mb-3">
+            <input
+              type="text"
+              value={editedTitle}
+              onChange={(e) => setEditedTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
+              autoFocus
+              className="flex-1 px-3 py-1.5 rounded-lg bg-muted border border-primary focus:ring-2 focus:ring-primary/20 outline-none text-foreground font-display font-semibold"
+            />
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleSaveTitle}>
+              <Check className="h-4 w-4 text-primary" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleCancelEdit}>
+              <X className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          </div>
+        ) : (
+          <h3 className="font-display font-semibold text-foreground mb-3">{memo.title}</h3>
+        )}
 
         {/* Audio Player with Waveform */}
         {memo.audioUrl && (
