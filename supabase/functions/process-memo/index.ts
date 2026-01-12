@@ -27,13 +27,13 @@ serve(async (req) => {
 
     const isAutoDetect = language === "auto" || !language;
     
-    const systemPrompt = `You are an AI assistant that processes voice memo transcripts. The transcript may be in any language (commonly English or Russian).
+const systemPrompt = `You are an AI assistant that processes voice memo transcripts. The transcript may be in any language (commonly English or Russian).
 
 Analyze the transcript and extract:
 
 1. A concise summary (1-2 sentences max) - IN THE SAME LANGUAGE as the transcript
-2. Relevant categories from this list: Ideas, Tasks, Reflections, Goals, Gratitude, Creative
-3. Any actionable tasks mentioned (as a list of short task descriptions) - IN THE SAME LANGUAGE as the transcript
+2. Relevant categories from this list: Ideas, Nuggets, Reflections, Goals, Gratitude, Creative
+3. Any nuggets (key insights, action items, or valuable takeaways) mentioned - IN THE SAME LANGUAGE as the transcript
 4. A suggested title (short, descriptive, 3-6 words) - IN THE SAME LANGUAGE as the transcript
 5. The detected language code (e.g., "en-US", "ru-RU", "uk-UA", "es-ES", "fr-FR", "de-DE")
 
@@ -42,12 +42,12 @@ Respond in JSON format only:
   "title": "suggested title here",
   "summary": "concise summary here",
   "categories": ["Category1", "Category2"],
-  "tasks": ["task 1", "task 2"],
+  "tasks": ["nugget 1", "nugget 2"],
   "detected_language": "language code here"
 }
 
-Be concise and practical. Only include categories that truly fit. Only extract tasks that are clearly actionable items mentioned by the speaker.
-The title, summary, and tasks should be in the SAME LANGUAGE as the original transcript.`;
+Be concise and practical. Only include categories that truly fit. Only extract nuggets that are clearly valuable insights or action items mentioned by the speaker.
+The title, summary, and nuggets should be in the SAME LANGUAGE as the original transcript.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

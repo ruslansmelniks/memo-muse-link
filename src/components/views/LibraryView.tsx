@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { FolderOpen, Clock, Heart, CheckCircle2, GripVertical } from "lucide-react";
+import { FolderOpen, Clock, Sparkles, GripVertical } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { MemoCard } from "@/components/MemoCard";
 import { FolderSidebar } from "@/components/FolderSidebar";
@@ -27,15 +27,8 @@ interface Memo {
   folderId?: string | null;
 }
 
-const tabs = [
-  { id: "all", label: "All", icon: FolderOpen },
-  { id: "recent", label: "Recent", icon: Clock },
-  { id: "public", label: "Public", icon: Heart },
-  { id: "tasks", label: "With Tasks", icon: CheckCircle2 },
-];
 
 export function LibraryView() {
-  const [activeTab, setActiveTab] = useState("all");
   const [memos, setMemos] = useState<Memo[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -285,24 +278,14 @@ export function LibraryView() {
   const getFilteredMemos = () => {
     let filtered = memos;
 
-    // First filter by folder
+    // Filter by folder
     if (selectedFolderId === "unfiled") {
       filtered = filtered.filter(m => !m.folderId);
     } else if (selectedFolderId) {
       filtered = filtered.filter(m => m.folderId === selectedFolderId);
     }
 
-    // Then apply tab filter
-    switch (activeTab) {
-      case "recent":
-        return filtered.slice(0, 5);
-      case "public":
-        return filtered.filter(m => m.isPublic);
-      case "tasks":
-        return filtered.filter(m => m.tasks.length > 0);
-      default:
-        return filtered;
-    }
+    return filtered;
   };
 
   const filteredMemos = getFilteredMemos();
@@ -337,7 +320,7 @@ export function LibraryView() {
           <p className="text-muted-foreground">
             {selectedFolder || selectedFolderId === "unfiled" 
               ? `${filteredMemos.length} memos`
-              : `${memos.length} memos · ${totalTasks} tasks extracted`
+              : `${memos.length} memos · ${totalTasks} nuggets found`
             }
           </p>
           {isDragging && (
@@ -363,30 +346,6 @@ export function LibraryView() {
 
           {/* Main Content */}
           <div className="flex-1">
-            {/* Tabs */}
-            <div className="flex gap-2 mb-6 overflow-x-auto pb-2 animate-fade-in" style={{ animationDelay: "100ms" }}>
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
-                
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={cn(
-                      "flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all duration-200",
-                      isActive
-                        ? "gradient-primary text-primary-foreground shadow-soft"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
-
             {/* Stats Cards - Only show when viewing all */}
             {!selectedFolderId && (
               <div className="grid grid-cols-2 gap-4 mb-6">
@@ -402,12 +361,12 @@ export function LibraryView() {
                 
                 <div className="glass-card rounded-2xl p-4 animate-fade-in" style={{ animationDelay: "200ms" }}>
                   <div className="w-10 h-10 rounded-xl gradient-lavender flex items-center justify-center mb-2">
-                    <CheckCircle2 className="h-5 w-5 text-lavender-400" />
+                    <Sparkles className="h-5 w-5 text-lavender-400" />
                   </div>
                   <p className="text-2xl font-display font-bold text-foreground">
                     {totalTasks}
                   </p>
-                  <p className="text-xs text-muted-foreground">Tasks extracted</p>
+                  <p className="text-xs text-muted-foreground">Nuggets</p>
                 </div>
               </div>
             )}
@@ -467,11 +426,9 @@ export function LibraryView() {
                   ) : (
                     <div className="text-center py-12">
                       <p className="text-muted-foreground">
-                        {activeTab === "all" 
-                          ? selectedFolderId === "unfiled"
-                            ? "No unfiled memos. All your memos are organized!"
-                            : "No memos yet. Start recording!" 
-                          : "No memos match this filter"}
+                        {selectedFolderId === "unfiled"
+                          ? "No unfiled memos. All your memos are organized!"
+                          : "No memos yet. Start recording!"}
                       </p>
                     </div>
                   )}

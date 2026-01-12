@@ -2,7 +2,7 @@ import { Memo, Category } from "@/types/memo";
 
 export const categories: Category[] = [
   { id: "1", name: "Ideas", color: "coral", icon: "💡" },
-  { id: "2", name: "Tasks", color: "mint", icon: "✓" },
+  { id: "2", name: "Nuggets", color: "mint", icon: "✨" },
   { id: "3", name: "Reflections", color: "lavender", icon: "🌙" },
   { id: "4", name: "Goals", color: "coral", icon: "🎯" },
   { id: "5", name: "Gratitude", color: "mint", icon: "🙏" },

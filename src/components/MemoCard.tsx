@@ -91,7 +91,7 @@ const LANGUAGE_DISPLAY: Record<string, { flag: string; short: string }> = {
 
 const categoryColors: Record<string, string> = {
   Ideas: "bg-coral-100 text-coral-500",
-  Tasks: "bg-mint-100 text-mint-400",
+  Nuggets: "bg-mint-100 text-mint-400",
   Reflections: "bg-lavender-100 text-lavender-400",
   Goals: "bg-coral-50 text-coral-400",
   Gratitude: "bg-mint-50 text-mint-300",
@@ -476,10 +476,10 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
           </div>
         )}
 
-        {/* Tasks */}
+        {/* Nuggets */}
         {memo.tasks.length > 0 && (
           <div className="bg-muted/50 rounded-xl p-3 mb-4">
-            <p className="text-xs font-medium text-muted-foreground mb-2">Extracted Tasks</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">Nuggets</p>
             <div className="space-y-2">
               {memo.tasks.slice(0, 3).map((task, i) => (
                 <div key={i} className="flex items-center gap-2">
