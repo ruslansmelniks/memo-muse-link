@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Serif+4:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -16,7 +16,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 20 20% 15%;
 
-    /* Warm coral primary */
+    /* Warm coral primary - reserved for key actions */
     --primary: 16 85% 65%;
     --primary-foreground: 0 0% 100%;
 
@@ -40,6 +40,10 @@
 
     --radius: 1rem;
 
+    /* Neutral dark for UI elements */
+    --neutral-dark: 20 15% 25%;
+    --neutral-medium: 20 10% 40%;
+
     /* Custom gradient tokens */
     --gradient-primary: linear-gradient(135deg, hsl(16, 85%, 65%) 0%, hsl(35, 90%, 70%) 100%);
     --gradient-secondary: linear-gradient(135deg, hsl(260, 50%, 75%) 0%, hsl(200, 70%, 75%) 100%);
@@ -48,15 +52,15 @@
     --gradient-mint: linear-gradient(135deg, hsl(165, 50%, 85%) 0%, hsl(180, 45%, 88%) 100%);
     --gradient-lavender: linear-gradient(135deg, hsl(260, 50%, 88%) 0%, hsl(280, 45%, 90%) 100%);
 
-    /* Glass effect tokens */
-    --glass-background: rgba(255, 255, 255, 0.75);
-    --glass-border: rgba(255, 255, 255, 0.5);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    /* Glass effect tokens - more subtle */
+    --glass-background: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.6);
+    --glass-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 
-    /* Soft shadows */
-    --shadow-soft: 0 4px 20px rgba(0, 0, 0, 0.06);
-    --shadow-medium: 0 8px 32px rgba(0, 0, 0, 0.1);
-    --shadow-glow: 0 0 40px rgba(232, 121, 89, 0.2);
+    /* Reduced shadows */
+    --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.04);
+    --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.06);
+    --shadow-glow: 0 0 24px rgba(232, 121, 89, 0.15);
 
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
@@ -97,9 +101,12 @@
     --input: 20 10% 20%;
     --ring: 16 85% 65%;
 
-    --glass-background: rgba(30, 25, 22, 0.75);
-    --glass-border: rgba(60, 55, 50, 0.5);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --neutral-dark: 30 15% 85%;
+    --neutral-medium: 30 10% 70%;
+
+    --glass-background: rgba(30, 25, 22, 0.85);
+    --glass-border: rgba(60, 55, 50, 0.6);
+    --glass-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
 
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
@@ -123,7 +130,8 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-weight: 600;
   }
 }
 

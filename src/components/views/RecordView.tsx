@@ -284,31 +284,25 @@ export function RecordView() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 pb-32">
-      {/* Hero Section */}
-      <div className="text-center mb-8 animate-fade-in">
-        <h2 className="font-display text-3xl font-bold text-foreground mb-2">
-          Capture Your Thoughts
-        </h2>
-        <p className="text-muted-foreground">
-          Record while walking, cleaning, or whenever inspiration strikes
-        </p>
-      </div>
-
+    <div className="container mx-auto px-4 py-10 pb-32">
       {/* Voice Recorder */}
-      <div className="mb-10">
+      <div className="mb-16">
         <VoiceRecorder onRecordingComplete={handleRecordingComplete} />
       </div>
 
       {/* Auth prompt for non-logged in users */}
       {!user && (
-        <div className="glass-card rounded-2xl p-6 mb-8 text-center animate-fade-in">
-          <LogIn className="h-10 w-10 text-primary mx-auto mb-3" />
+        <div className="bg-muted/50 rounded-2xl p-8 mb-10 text-center animate-fade-in border border-border/50">
+          <LogIn className="h-8 w-8 text-foreground/60 mx-auto mb-4" />
           <h3 className="font-display font-semibold text-lg mb-2">Sign in to save your memos</h3>
-          <p className="text-sm text-muted-foreground mb-4">
+          <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
             Create an account to save recordings, access AI summaries, and discover ideas from others.
           </p>
-          <Button variant="hero" onClick={() => setShowAuthModal(true)}>
+          <Button 
+            variant="outline" 
+            className="border-foreground/20 hover:bg-foreground/5"
+            onClick={() => setShowAuthModal(true)}
+          >
             Get Started
           </Button>
         </div>
@@ -317,10 +311,10 @@ export function RecordView() {
       {/* Recent Memos */}
       {user && memos.length > 0 && (
         <div>
-          <h3 className="font-display font-semibold text-lg text-foreground mb-4">
+          <h3 className="font-display font-semibold text-xl text-foreground mb-6">
             Your Recent Memos
           </h3>
-          <div className="space-y-4">
+          <div className="space-y-6">
             {memos.map((memo, i) => (
               <div 
                 key={memo.id} 
@@ -339,7 +333,7 @@ export function RecordView() {
       )}
 
       {user && memos.length === 0 && (
-        <div className="text-center py-8 text-muted-foreground animate-fade-in">
+        <div className="text-center py-12 text-muted-foreground animate-fade-in">
           <p>No memos yet. Record your first thought!</p>
         </div>
       )}

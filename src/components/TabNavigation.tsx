@@ -15,7 +15,7 @@ const tabs = [
 
 export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 glass-card border-t border-border/50 pb-safe">
+    <nav className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border/30 pb-safe">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-around py-3">
           {tabs.map((tab) => {
@@ -27,22 +27,25 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
-                  "flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200",
+                  "flex flex-col items-center gap-1.5 px-4 py-2 rounded-xl transition-all duration-200",
                   isActive 
-                    ? "text-primary" 
+                    ? "text-foreground" 
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <div className={cn(
-                  "p-2 rounded-xl transition-all duration-200",
-                  isActive && "gradient-primary shadow-soft"
+                  "p-2.5 rounded-xl transition-all duration-200",
+                  isActive && "bg-foreground/10"
                 )}>
                   <Icon className={cn(
                     "h-5 w-5",
-                    isActive && "text-primary-foreground"
+                    isActive && "stroke-[2.5]"
                   )} />
                 </div>
-                <span className="text-xs font-medium">{tab.label}</span>
+                <span className={cn(
+                  "text-xs",
+                  isActive ? "font-medium" : "font-normal"
+                )}>{tab.label}</span>
               </button>
             );
           })}

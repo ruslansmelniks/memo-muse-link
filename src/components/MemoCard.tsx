@@ -228,14 +228,14 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
     <>
       <div 
         className={cn(
-          "glass-card rounded-2xl p-5 shadow-soft hover:shadow-medium transition-all duration-300 animate-fade-in",
-          variant === "compact" && "p-4"
+          "bg-card rounded-2xl p-6 border border-border/50 transition-all duration-300 animate-fade-in hover:border-border",
+          variant === "compact" && "p-5"
         )}
       >
       {/* Header */}
-        <div className="flex items-start justify-between mb-3">
+        <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-primary-foreground font-medium text-sm">
+            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-foreground font-medium text-sm">
               {memo.author.name.charAt(0)}
             </div>
             <div>
@@ -357,21 +357,21 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
             </Button>
           </div>
         ) : (
-          <h3 className="font-display font-semibold text-foreground mb-3">{memo.title}</h3>
+          <h3 className="font-display font-semibold text-foreground mb-4">{memo.title}</h3>
         )}
 
         {/* Audio Player with Waveform */}
         {memo.audioUrl && (
-          <div className="bg-muted/30 rounded-xl p-3 mb-4">
-            <div className="flex items-center gap-3">
+          <div className="bg-muted/30 rounded-xl p-4 mb-5">
+            <div className="flex items-center gap-4">
               <button 
                 onClick={togglePlayback}
-                className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center shadow-soft hover:shadow-glow transition-shadow flex-shrink-0"
+                className="w-10 h-10 rounded-full bg-foreground/10 flex items-center justify-center hover:bg-foreground/15 transition-colors flex-shrink-0"
               >
                 {isPlaying ? (
-                  <Pause className="h-4 w-4 text-primary-foreground" />
+                  <Pause className="h-4 w-4 text-foreground" />
                 ) : (
-                  <Play className="h-4 w-4 text-primary-foreground ml-0.5" />
+                  <Play className="h-4 w-4 text-foreground ml-0.5" />
                 )}
               </button>
               
@@ -403,14 +403,14 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
         )}
 
         {/* Summary */}
-        <p className="text-sm text-muted-foreground mb-3 leading-relaxed">
+        <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
           {memo.summary || memo.transcript.slice(0, 150)}
         </p>
 
         {/* View Transcript Button */}
         <button
           onClick={() => setShowTranscriptDialog(true)}
-          className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 transition-colors mb-4"
+          className="flex items-center gap-1.5 text-xs text-foreground/60 hover:text-foreground transition-colors mb-5"
         >
           <FileText className="h-3.5 w-3.5" />
           View full transcript
@@ -418,14 +418,11 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
 
         {/* Categories */}
         {memo.categories.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex flex-wrap gap-2 mb-5">
             {memo.categories.map((category) => (
               <span
                 key={category}
-                className={cn(
-                  "px-3 py-1 rounded-full text-xs font-medium",
-                  categoryColors[category] || "bg-muted text-muted-foreground"
-                )}
+                className="px-3 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground"
               >
                 {category}
               </span>

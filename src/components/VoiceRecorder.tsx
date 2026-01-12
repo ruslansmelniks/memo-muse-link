@@ -167,8 +167,8 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
   const selectedLangDisplay = SUPPORTED_LANGUAGES.find(l => l.code === selectedLanguage);
 
   return (
-    <div className="glass-card rounded-3xl p-8 shadow-medium">
-      <div className="flex flex-col items-center space-y-6">
+    <div className="bg-muted/30 rounded-3xl p-10 border border-border/50">
+      <div className="flex flex-col items-center space-y-8">
         {/* Language Selector */}
         <div className="w-full flex justify-center">
           <LanguageSelector
@@ -179,13 +179,13 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
         </div>
 
         {/* Audio Visualizer */}
-        <div className="flex items-center justify-center gap-1 h-20">
+        <div className="flex items-center justify-center gap-1.5 h-24">
           {audioLevels.map((level, i) => (
             <div
               key={i}
               className={cn(
                 "w-2 rounded-full transition-all duration-100",
-                isRecording && !isPaused ? "gradient-primary" : "bg-muted"
+                isRecording && !isPaused ? "bg-foreground/60" : "bg-muted-foreground/30"
               )}
               style={{
                 height: `${level * 100}%`,
@@ -196,7 +196,7 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
         </div>
 
         {/* Timer */}
-        <div className="text-4xl font-display font-semibold text-foreground">
+        <div className="text-5xl font-display font-semibold text-foreground tracking-tight">
           {formatTime(duration)}
         </div>
 
@@ -210,32 +210,34 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
         )}
 
         {/* Controls */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6 pt-2">
           {!isRecording ? (
             <Button
               variant="hero"
               size="iconLg"
               onClick={startRecording}
-              className="shadow-glow"
               disabled={!isSupported}
+              className="w-20 h-20 rounded-full"
             >
-              <Mic className="h-6 w-6" />
+              <Mic className="h-8 w-8" />
             </Button>
           ) : (
             <>
               <Button
-                variant="glass"
+                variant="ghost"
                 size="icon"
                 onClick={togglePause}
+                className="text-muted-foreground hover:text-foreground"
               >
-                {isPaused ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+                {isPaused ? <Play className="h-6 w-6" /> : <Pause className="h-6 w-6" />}
               </Button>
               <Button
                 variant="hero"
                 size="iconLg"
                 onClick={stopRecording}
+                className="w-20 h-20 rounded-full"
               >
-                <Square className="h-5 w-5" />
+                <Square className="h-6 w-6" />
               </Button>
             </>
           )}
@@ -244,14 +246,14 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
         <p className="text-sm text-muted-foreground text-center">
           {isRecording ? (
             isPaused 
-              ? "Paused - tap to resume" 
+              ? "Paused — tap to resume" 
               : `Recording in ${selectedLangDisplay?.name || "Auto"}... tap to stop`
           ) : (
-            "Tap to start recording your thoughts"
+            "Tap to start recording"
           )}
         </p>
         {speechError && !isRecording && (
-          <p className="text-xs text-muted-foreground/70 text-center mt-1">
+          <p className="text-xs text-muted-foreground/70 text-center">
             Live preview unavailable • Audio will be transcribed after recording
           </p>
         )}
