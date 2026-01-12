@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Mic, Compass, FolderOpen, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useHaptics } from "@/hooks/useHaptics";
 
 interface TabNavigationProps {
   activeTab: string;
@@ -15,6 +16,15 @@ const tabs = [
 ];
 
 export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
+  const haptics = useHaptics();
+
+  const handleTabChange = (tabId: string) => {
+    if (tabId !== activeTab) {
+      haptics.selection();
+    }
+    onTabChange(tabId);
+  };
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-background/98 backdrop-blur-md border-t border-border/20 pb-safe">
       <div className="container mx-auto px-2">
@@ -26,7 +36,7 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
             return (
               <motion.button
                 key={tab.id}
-                onClick={() => onTabChange(tab.id)}
+                onClick={() => handleTabChange(tab.id)}
                 whileTap={{ scale: 0.92 }}
                 className={cn(
                   "flex flex-col items-center gap-1 min-w-[64px] min-h-[52px] py-1.5 rounded-2xl transition-colors duration-200 relative",
