@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { FolderOpen, Clock, Sparkles, GripVertical } from "lucide-react";
+import { FolderOpen, Clock, Sparkles, GripVertical, Search, X } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { MemoCard } from "@/components/MemoCard";
 import { SwipeableMemoCard } from "@/components/SwipeableMemoCard";
@@ -53,6 +53,7 @@ export function LibraryView() {
   const [folderSummary, setFolderSummary] = useState<FolderSummary | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summarizingFolder, setSummarizingFolder] = useState<Folder | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuth();
   const isMobile = useIsMobile();
 
@@ -369,6 +370,16 @@ export function LibraryView() {
       filtered = filtered.filter(m => m.folderId === selectedFolderId);
     }
 
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(m => 
+        m.title.toLowerCase().includes(query) ||
+        m.transcript.toLowerCase().includes(query) ||
+        (m.summary?.toLowerCase().includes(query))
+      );
+    }
+
     return filtered;
   };
 
@@ -423,6 +434,26 @@ export function LibraryView() {
             <p className="text-sm text-primary mt-2 animate-fade-in">
               Drop on a folder in the sidebar to move
             </p>
+          )}
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "100ms" }}>
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search memos by title or content..."
+            className="w-full pl-12 pr-10 py-3 rounded-2xl bg-muted border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
           )}
         </div>
 
