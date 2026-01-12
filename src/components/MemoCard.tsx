@@ -38,11 +38,22 @@ interface MemoCardProps {
     };
     likes: number;
     comments: number;
+    language?: string | null;
   };
   variant?: "default" | "compact";
   onDelete?: (id: string) => void;
   canDelete?: boolean;
 }
+
+const LANGUAGE_DISPLAY: Record<string, { flag: string; short: string }> = {
+  "en-US": { flag: "🇺🇸", short: "EN" },
+  "ru-RU": { flag: "🇷🇺", short: "RU" },
+  "uk-UA": { flag: "🇺🇦", short: "UA" },
+  "es-ES": { flag: "🇪🇸", short: "ES" },
+  "fr-FR": { flag: "🇫🇷", short: "FR" },
+  "de-DE": { flag: "🇩🇪", short: "DE" },
+  "auto": { flag: "🌐", short: "Auto" },
+};
 
 const categoryColors: Record<string, string> = {
   Ideas: "bg-coral-100 text-coral-500",
@@ -138,7 +149,7 @@ export function MemoCard({ memo, variant = "default", onDelete, canDelete = fals
           variant === "compact" && "p-4"
         )}
       >
-        {/* Header */}
+      {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full gradient-primary flex items-center justify-center text-primary-foreground font-medium text-sm">
@@ -146,7 +157,18 @@ export function MemoCard({ memo, variant = "default", onDelete, canDelete = fals
             </div>
             <div>
               <p className="font-medium text-foreground">{memo.author.name}</p>
-              <p className="text-xs text-muted-foreground">{formatTimeAgo(memo.createdAt)}</p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{formatTimeAgo(memo.createdAt)}</span>
+                {memo.language && LANGUAGE_DISPLAY[memo.language] && (
+                  <>
+                    <span>•</span>
+                    <span className="flex items-center gap-1">
+                      {LANGUAGE_DISPLAY[memo.language].flag}
+                      {LANGUAGE_DISPLAY[memo.language].short}
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
