@@ -2,3 +2,6 @@ project_id = "zlwzuoigrrxwfqsgwuaz"
 
 [functions.process-memo]
 verify_jwt = false
+
+[functions.elevenlabs-transcribe]
+verify_jwt = false
