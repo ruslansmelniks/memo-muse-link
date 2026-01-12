@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy, Pencil, Check, X, FolderInput, Folder as FolderIcon } from "lucide-react";
+import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy, Pencil, Check, X, FolderInput, Folder as FolderIcon, Plus, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AudioWaveform } from "@/components/AudioWaveform";
 import {
@@ -73,6 +73,8 @@ interface MemoCardProps {
   onDelete?: (id: string) => void;
   onUpdateTitle?: (id: string, newTitle: string) => void;
   onMoveToFolder?: (memoId: string, folderId: string | null) => void;
+  onToggleVisibility?: (id: string, isPublic: boolean) => void;
+  onCreateFolder?: () => void;
   folders?: Folder[];
   canDelete?: boolean;
 }
@@ -109,7 +111,7 @@ const iconComponents: Record<FolderIconType, React.ElementType> = {
   coffee: Coffee,
 };
 
-export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, onMoveToFolder, folders = [], canDelete = false }: MemoCardProps) {
+export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, onMoveToFolder, onToggleVisibility, onCreateFolder, folders = [], canDelete = false }: MemoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(memo.duration);
@@ -273,13 +275,40 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {/* View Transcript */}
+                  <DropdownMenuItem onClick={() => setShowTranscriptDialog(true)}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    View transcript
+                  </DropdownMenuItem>
+                  
                   {onUpdateTitle && (
                     <DropdownMenuItem onClick={() => setIsEditingTitle(true)}>
                       <Pencil className="h-4 w-4 mr-2" />
                       Edit title
                     </DropdownMenuItem>
                   )}
-                  {onMoveToFolder && folders.length > 0 && (
+                  
+                  {/* Toggle Visibility */}
+                  {onToggleVisibility && (
+                    <DropdownMenuItem onClick={() => onToggleVisibility(memo.id, !memo.isPublic)}>
+                      {memo.isPublic ? (
+                        <>
+                          <Lock className="h-4 w-4 mr-2" />
+                          Make private
+                        </>
+                      ) : (
+                        <>
+                          <Globe className="h-4 w-4 mr-2" />
+                          Make public
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                  )}
+                  
+                  <DropdownMenuSeparator />
+                  
+                  {/* Move to Folder */}
+                  {onMoveToFolder && (
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger>
                         <FolderInput className="h-4 w-4 mr-2" />
@@ -294,7 +323,7 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
                           Unfiled
                           {!memo.folderId && <Check className="h-4 w-4 ml-auto" />}
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
+                        {folders.length > 0 && <DropdownMenuSeparator />}
                         {folders.map(folder => {
                           const IconComponent = iconComponents[folder.icon as FolderIconType] || FolderIconLucide;
                           return (
@@ -311,9 +340,19 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
                             </DropdownMenuItem>
                           );
                         })}
+                        {onCreateFolder && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={onCreateFolder}>
+                              <Plus className="h-4 w-4 mr-2" />
+                              Create new folder
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuSubContent>
                     </DropdownMenuSub>
                   )}
+                  
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={() => setShowDeleteDialog(true)}
