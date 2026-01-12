@@ -4,11 +4,19 @@ import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea
 import { MemoCard } from "@/components/MemoCard";
 import { FolderSidebar } from "@/components/FolderSidebar";
 import { FolderModal } from "@/components/FolderModal";
+import { FolderSummaryModal } from "@/components/FolderSummaryModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Folder } from "@/types/folder";
+
+interface FolderSummary {
+  overview: string;
+  themes: string[];
+  nuggets: string[];
+  connections: string;
+}
 
 interface Memo {
   id: string;
@@ -37,6 +45,10 @@ export function LibraryView() {
   const [editingFolder, setEditingFolder] = useState<Folder | null>(null);
   const [isSavingFolder, setIsSavingFolder] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [showSummaryModal, setShowSummaryModal] = useState(false);
+  const [folderSummary, setFolderSummary] = useState<FolderSummary | null>(null);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [summarizingFolder, setSummarizingFolder] = useState<Folder | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -275,6 +287,64 @@ export function LibraryView() {
     }
   };
 
+  const handleSummarizeFolder = async (folder: Folder) => {
+    const folderMemos = memos.filter(m => m.folderId === folder.id);
+    
+    if (folderMemos.length === 0) {
+      toast.error("This folder has no memos to summarize");
+      return;
+    }
+
+    setSummarizingFolder(folder);
+    setFolderSummary(null);
+    setShowSummaryModal(true);
+    setIsSummarizing(true);
+
+    try {
+      const payload = {
+        folderName: folder.name,
+        memos: folderMemos.map(m => ({
+          title: m.title,
+          summary: m.summary,
+          nuggets: m.tasks,
+          createdAt: m.createdAt.toISOString(),
+        })),
+      };
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/summarize-folder`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (response.status === 429) {
+          throw new Error("Rate limit exceeded. Please try again later.");
+        }
+        if (response.status === 402) {
+          throw new Error("Credits exhausted. Please add funds to continue.");
+        }
+        throw new Error(errorData.error || "Failed to summarize folder");
+      }
+
+      const data = await response.json();
+      setFolderSummary(data.summary);
+    } catch (error) {
+      console.error("Summarize error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to summarize folder");
+      setShowSummaryModal(false);
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
   const getFilteredMemos = () => {
     let filtered = memos;
 
@@ -339,6 +409,7 @@ export function LibraryView() {
             onCreateFolder={handleCreateFolder}
             onEditFolder={handleEditFolder}
             onDeleteFolder={handleDeleteFolder}
+            onSummarizeFolder={handleSummarizeFolder}
             unfiledCount={unfiledCount}
             totalCount={memos.length}
             isDragging={isDragging}
@@ -446,6 +517,16 @@ export function LibraryView() {
           onSave={handleSaveFolder}
           folder={editingFolder}
           isLoading={isSavingFolder}
+        />
+
+        {/* Folder Summary Modal */}
+        <FolderSummaryModal
+          isOpen={showSummaryModal}
+          onClose={() => setShowSummaryModal(false)}
+          folderName={summarizingFolder?.name || ""}
+          summary={folderSummary}
+          isLoading={isSummarizing}
+          memoCount={summarizingFolder ? memos.filter(m => m.folderId === summarizingFolder.id).length : 0}
         />
       </div>
     </DragDropContext>
