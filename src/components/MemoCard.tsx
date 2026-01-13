@@ -173,24 +173,38 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
   };
 
   const initAudio = useCallback(() => {
-    if (!memo.audioUrl || audioRef.current) return audioRef.current;
+    if (!memo.audioUrl) return null;
     
-    const audio = new Audio(memo.audioUrl);
-    audio.ontimeupdate = () => {
-      setCurrentTime(audio.currentTime);
-    };
-    audio.onloadedmetadata = () => {
-      setAudioDuration(audio.duration);
-    };
-    audio.onended = () => {
-      setIsPlaying(false);
-      setCurrentTime(0);
-    };
-    audioRef.current = audio;
-    return audio;
+    // Always create fresh audio element if we don't have one
+    if (!audioRef.current) {
+      const audio = new Audio();
+      audio.preload = "metadata";
+      audio.src = memo.audioUrl;
+      
+      audio.ontimeupdate = () => {
+        setCurrentTime(audio.currentTime);
+      };
+      audio.onloadedmetadata = () => {
+        if (audio.duration && !isNaN(audio.duration)) {
+          setAudioDuration(audio.duration);
+        }
+      };
+      audio.onended = () => {
+        setIsPlaying(false);
+        setCurrentTime(0);
+      };
+      audio.onerror = (e) => {
+        console.error("Audio error:", e);
+        setIsPlaying(false);
+      };
+      
+      audioRef.current = audio;
+    }
+    
+    return audioRef.current;
   }, [memo.audioUrl]);
 
-  const togglePlayback = () => {
+  const togglePlayback = async () => {
     if (!memo.audioUrl) return;
 
     const audio = initAudio();
@@ -198,22 +212,51 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
 
     if (isPlaying) {
       audio.pause();
+      setIsPlaying(false);
     } else {
-      audio.play();
+      try {
+        // Ensure audio is loaded before playing
+        if (audio.readyState < 2) {
+          audio.load();
+        }
+        await audio.play();
+        setIsPlaying(true);
+      } catch (error) {
+        console.error("Playback error:", error);
+        // Try loading and playing again
+        try {
+          audio.load();
+          await audio.play();
+          setIsPlaying(true);
+        } catch (retryError) {
+          console.error("Retry playback failed:", retryError);
+        }
+      }
     }
-    setIsPlaying(!isPlaying);
   };
 
-  const handleSeek = useCallback((time: number) => {
+  const handleSeek = useCallback(async (time: number) => {
     const audio = initAudio();
     if (!audio) return;
+    
+    // Ensure audio is loaded before seeking
+    if (audio.readyState < 2) {
+      audio.load();
+      await new Promise(resolve => {
+        audio.oncanplay = resolve;
+      });
+    }
     
     audio.currentTime = time;
     setCurrentTime(time);
     
     if (!isPlaying) {
-      audio.play();
-      setIsPlaying(true);
+      try {
+        await audio.play();
+        setIsPlaying(true);
+      } catch (error) {
+        console.error("Seek playback error:", error);
+      }
     }
   }, [initAudio, isPlaying]);
 
