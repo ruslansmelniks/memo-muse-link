@@ -1,4 +1,4 @@
-import { Heart, Eye, Headphones, Bookmark, Play, Pause } from "lucide-react";
+import { Heart, Eye, Bookmark, Play, Pause } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -11,22 +11,51 @@ import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 
 interface DiscoverFeedCardProps {
   memo: DiscoverMemo;
   className?: string;
 }
 
+// Generate pseudo-random waveform bars based on memo id
+function generateWaveformBars(id: string, count: number = 50): number[] {
+  let seed = 0;
+  for (let i = 0; i < id.length; i++) {
+    seed = ((seed << 5) - seed) + id.charCodeAt(i);
+    seed = seed & seed;
+  }
+  
+  const bars: number[] = [];
+  for (let i = 0; i < count; i++) {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    // Create wave-like pattern with some randomness
+    const wave = Math.sin((i / count) * Math.PI * 2) * 0.3 + 0.5;
+    const random = (seed % 100) / 100;
+    bars.push(0.2 + wave * 0.4 + random * 0.4);
+  }
+  return bars;
+}
+
 export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
   const { user } = useAuth();
-  const { play, pause, isPlaying, isCurrentTrack } = useAudioPlayer();
+  const { play, pause, isPlaying, isCurrentTrack, currentTime, duration, seek } = useAudioPlayer();
   const { isBookmarked, toggleBookmark, loading: bookmarkLoading } = useBookmarks();
   const { isLiked, toggleLike } = useLikes();
   const [likeCount, setLikeCount] = useState(memo.likes);
+  const waveformRef = useRef<HTMLDivElement>(null);
 
-  const isThisTrackPlaying = isCurrentTrack(memo.id) && isPlaying;
+  const isThisTrack = isCurrentTrack(memo.id);
+  const isThisTrackPlaying = isThisTrack && isPlaying;
   const isDemo = memo.id.startsWith("demo-");
+
+  // Generate consistent waveform for this memo
+  const waveformBars = useMemo(() => generateWaveformBars(memo.id, 60), [memo.id]);
+  
+  // Calculate progress percentage
+  const progress = isThisTrack && duration > 0 
+    ? (currentTime / duration) * 100 
+    : 0;
 
   const formatTimeAgo = (date: Date) => {
     const now = new Date();
@@ -68,6 +97,33 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
       });
     }
   };
+
+  const handleWaveformClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!memo.audioUrl || !waveformRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const rect = waveformRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = clickX / rect.width;
+    const seekTime = percentage * memo.duration;
+    
+    // If this is already the current track, just seek
+    if (isThisTrack) {
+      seek(seekTime);
+    } else {
+      // Start playing from beginning, then seek
+      play({
+        id: memo.id,
+        title: memo.title,
+        audioUrl: memo.audioUrl,
+        author: memo.author,
+        duration: memo.duration,
+      });
+      // Seek after a brief delay to allow audio to load
+      setTimeout(() => seek(seekTime), 100);
+    }
+  }, [memo, play, seek, isThisTrack]);
 
   const handleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -132,13 +188,75 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
         </Link>
 
         {/* Summary/Excerpt */}
-        <p className="text-muted-foreground text-sm leading-relaxed line-clamp-3 mb-3">
-          {memo.summary || memo.transcript.slice(0, 200)}
+        <p className="text-muted-foreground text-sm leading-relaxed line-clamp-2 mb-3">
+          {memo.summary || memo.transcript.slice(0, 150)}
         </p>
 
-        {/* Bottom Row: Categories + Audio + Actions */}
+        {/* SoundCloud-style Mini Player */}
+        {memo.audioUrl && (
+          <div className="bg-muted/30 rounded-xl p-3 mb-3">
+            <div className="flex items-center gap-3">
+              {/* Play Button */}
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={handlePlayToggle}
+                className={cn(
+                  "w-10 h-10 min-w-[40px] rounded-full flex items-center justify-center transition-colors flex-shrink-0",
+                  isThisTrackPlaying
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-foreground/10 text-foreground hover:bg-foreground/20"
+                )}
+              >
+                {isThisTrackPlaying ? (
+                  <Pause className="h-4 w-4" />
+                ) : (
+                  <Play className="h-4 w-4 ml-0.5" />
+                )}
+              </motion.button>
+
+              {/* Waveform */}
+              <div 
+                ref={waveformRef}
+                onClick={handleWaveformClick}
+                className="flex-1 h-10 flex items-end gap-[2px] cursor-pointer group"
+              >
+                {waveformBars.map((height, i) => {
+                  const barProgress = (i / waveformBars.length) * 100;
+                  const isPlayed = barProgress < progress;
+                  const isCurrentBar = Math.abs(barProgress - progress) < 2;
+                  
+                  return (
+                    <div
+                      key={i}
+                      className={cn(
+                        "flex-1 min-w-[2px] max-w-[4px] rounded-full transition-colors",
+                        isPlayed 
+                          ? "bg-primary" 
+                          : "bg-foreground/20 group-hover:bg-foreground/30",
+                        isCurrentBar && isThisTrack && "bg-primary"
+                      )}
+                      style={{ 
+                        height: `${height * 100}%`,
+                      }}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Duration */}
+              <div className="text-xs text-muted-foreground tabular-nums flex-shrink-0 min-w-[36px] text-right">
+                {isThisTrack 
+                  ? formatDuration(currentTime)
+                  : formatDuration(memo.duration)
+                }
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bottom Row: Categories + Actions */}
         <div className="flex items-center justify-between gap-4">
-          {/* Left: Categories + Audio player */}
+          {/* Left: Categories */}
           <div className="flex items-center gap-2 flex-wrap">
             {memo.categories.slice(0, 2).map((category) => (
               <Badge 
@@ -149,29 +267,15 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
                 {category}
               </Badge>
             ))}
-            {memo.audioUrl && (
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={handlePlayToggle}
-                className={cn(
-                  "flex items-center gap-1.5 text-xs px-2 py-1 rounded-full transition-colors",
-                  isThisTrackPlaying
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                {isThisTrackPlaying ? (
-                  <Pause className="h-3 w-3" />
-                ) : (
-                  <Play className="h-3 w-3" />
-                )}
-                <span>{formatDuration(memo.duration)}</span>
-              </motion.button>
+            {!memo.audioUrl && (
+              <span className="text-xs text-muted-foreground">
+                {formatDuration(memo.duration)}
+              </span>
             )}
           </div>
 
           {/* Right: Actions */}
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
             {/* Like */}
             <button
               onClick={handleLike}
