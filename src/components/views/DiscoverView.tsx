@@ -297,7 +297,10 @@ function DiscoverMemoCard({ memo, index }: DiscoverMemoCardProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(memo.duration);
   const [likeCount, setLikeCount] = useState(memo.likes);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const PLAYBACK_SPEEDS = [1, 1.2, 1.5, 2];
 
   // Initialize like count
   useEffect(() => {
@@ -349,6 +352,16 @@ function DiscoverMemoCard({ memo, index }: DiscoverMemoCardProps) {
       setIsPlaying(true);
     }
   }, [initAudio, isPlaying]);
+
+  const cyclePlaybackSpeed = () => {
+    const currentIndex = PLAYBACK_SPEEDS.indexOf(playbackSpeed);
+    const nextIndex = (currentIndex + 1) % PLAYBACK_SPEEDS.length;
+    const newSpeed = PLAYBACK_SPEEDS[nextIndex];
+    setPlaybackSpeed(newSpeed);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = newSpeed;
+    }
+  };
 
   const handleLike = async () => {
     if (!user) {
@@ -405,39 +418,9 @@ function DiscoverMemoCard({ memo, index }: DiscoverMemoCardProps) {
       whileHover={{ y: -2 }}
       className="bg-card rounded-2xl p-6 border border-border/50 transition-colors duration-200 hover:border-border"
     >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <Link to={memo.author.id ? `/profile/${memo.author.id}` : "#"} className="flex items-center gap-3 group">
-          {memo.author.avatar ? (
-            <img
-              src={memo.author.avatar}
-              alt={memo.author.name}
-              className="w-10 h-10 rounded-full object-cover"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-foreground font-medium text-sm">
-              {memo.author.name.charAt(0).toUpperCase()}
-            </div>
-          )}
-          <div>
-            <p className="font-medium text-foreground group-hover:text-primary transition-colors">{memo.author.name}</p>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>{formatTimeAgo(memo.createdAt)}</span>
-              {memo.language && LANGUAGE_DISPLAY[memo.language] && (
-                <>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    {LANGUAGE_DISPLAY[memo.language].flag}
-                    {LANGUAGE_DISPLAY[memo.language].short}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </Link>
-        
-        {/* Follow Button */}
-        {!isOwnMemo && memo.author.id && (
+      {/* Header Row - Follow Button */}
+      {!isOwnMemo && memo.author.id && (
+        <div className="flex justify-end mb-3">
           <Button
             variant={userIsFollowing ? "outline" : "default"}
             size="sm"
@@ -457,8 +440,38 @@ function DiscoverMemoCard({ memo, index }: DiscoverMemoCardProps) {
               </>
             )}
           </Button>
+        </div>
+      )}
+
+      {/* Author Row */}
+      <Link to={memo.author.id ? `/profile/${memo.author.id}` : "#"} className="flex items-center gap-3 group mb-4">
+        {memo.author.avatar ? (
+          <img
+            src={memo.author.avatar}
+            alt={memo.author.name}
+            className="w-10 h-10 rounded-full object-cover"
+          />
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-foreground font-medium text-sm">
+            {memo.author.name.charAt(0).toUpperCase()}
+          </div>
         )}
-      </div>
+        <div>
+          <p className="font-medium text-foreground group-hover:text-primary transition-colors">{memo.author.name}</p>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{formatTimeAgo(memo.createdAt)}</span>
+            {memo.language && LANGUAGE_DISPLAY[memo.language] && (
+              <>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  {LANGUAGE_DISPLAY[memo.language].flag}
+                  {LANGUAGE_DISPLAY[memo.language].short}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </Link>
 
       {/* Title */}
       <Link to={`/memo/${memo.id}`}>
@@ -493,8 +506,16 @@ function DiscoverMemoCard({ memo, index }: DiscoverMemoCardProps) {
               />
             </div>
 
-            <div className="text-xs text-muted-foreground font-medium flex-shrink-0">
-              {formatDuration(currentTime)} / {formatDuration(audioDuration)}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={cyclePlaybackSpeed}
+                className="px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-md transition-colors min-w-[40px]"
+              >
+                {playbackSpeed}x
+              </button>
+              <div className="text-xs text-muted-foreground font-medium">
+                {formatDuration(currentTime)} / {formatDuration(audioDuration)}
+              </div>
             </div>
           </div>
         </div>
