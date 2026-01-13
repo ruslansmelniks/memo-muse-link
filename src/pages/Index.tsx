@@ -5,6 +5,7 @@ import { RecordView } from "@/components/views/RecordView";
 import { DiscoverView } from "@/components/views/DiscoverView";
 import { LibraryView } from "@/components/views/LibraryView";
 import { SettingsView } from "@/components/views/SettingsView";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("record");
@@ -36,7 +37,9 @@ const Index = () => {
       
       <main className="relative flex-1 min-h-0 overflow-hidden">
         <div className="h-full">
-          {renderView()}
+          <ErrorBoundary>
+            {renderView()}
+          </ErrorBoundary>
         </div>
       </main>
       
