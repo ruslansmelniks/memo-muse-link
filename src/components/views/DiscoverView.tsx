@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useDiscoverMemos, DiscoverFeed, DiscoverMemo } from "@/hooks/useDiscoverMemos";
 import { useFollow } from "@/hooks/useFollow";
 import { useLikes } from "@/hooks/useLikes";
+import { usePlaybackSpeed } from "@/hooks/usePlaybackSpeed";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { PullToRefreshIndicator } from "@/components/PullToRefresh";
 import { useAuth } from "@/contexts/AuthContext";
@@ -293,14 +294,12 @@ function DiscoverMemoCard({ memo, index }: DiscoverMemoCardProps) {
   const { user } = useAuth();
   const { isFollowing, toggleFollow, loading: followLoading } = useFollow();
   const { isLiked, toggleLike, setInitialLikeCount, getLikeCount } = useLikes();
+  const { speed: playbackSpeed, cycleSpeed: cyclePlaybackSpeed } = usePlaybackSpeed();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(memo.duration);
   const [likeCount, setLikeCount] = useState(memo.likes);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const PLAYBACK_SPEEDS = [1, 1.2, 1.5, 2];
 
   // Initialize like count
   useEffect(() => {
@@ -319,6 +318,7 @@ function DiscoverMemoCard({ memo, index }: DiscoverMemoCardProps) {
     if (!memo.audioUrl || audioRef.current) return audioRef.current;
     
     const audio = new Audio(memo.audioUrl);
+    audio.playbackRate = playbackSpeed;
     audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
     audio.onloadedmetadata = () => setAudioDuration(audio.duration);
     audio.onended = () => {
@@ -327,7 +327,7 @@ function DiscoverMemoCard({ memo, index }: DiscoverMemoCardProps) {
     };
     audioRef.current = audio;
     return audio;
-  }, [memo.audioUrl]);
+  }, [memo.audioUrl, playbackSpeed]);
 
   const togglePlayback = () => {
     if (!memo.audioUrl) return;
@@ -353,13 +353,13 @@ function DiscoverMemoCard({ memo, index }: DiscoverMemoCardProps) {
     }
   }, [initAudio, isPlaying]);
 
-  const cyclePlaybackSpeed = () => {
-    const currentIndex = PLAYBACK_SPEEDS.indexOf(playbackSpeed);
-    const nextIndex = (currentIndex + 1) % PLAYBACK_SPEEDS.length;
-    const newSpeed = PLAYBACK_SPEEDS[nextIndex];
-    setPlaybackSpeed(newSpeed);
+  const handleCycleSpeed = () => {
+    cyclePlaybackSpeed();
     if (audioRef.current) {
-      audioRef.current.playbackRate = newSpeed;
+      const speeds = [1, 1.2, 1.5, 2];
+      const currentIndex = speeds.indexOf(playbackSpeed);
+      const nextSpeed = speeds[(currentIndex + 1) % speeds.length];
+      audioRef.current.playbackRate = nextSpeed;
     }
   };
 
@@ -508,7 +508,7 @@ function DiscoverMemoCard({ memo, index }: DiscoverMemoCardProps) {
 
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
-                onClick={cyclePlaybackSpeed}
+                onClick={handleCycleSpeed}
                 className="px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-md transition-colors min-w-[40px]"
               >
                 {playbackSpeed}x

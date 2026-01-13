@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLikes } from "@/hooks/useLikes";
 import { useFollow } from "@/hooks/useFollow";
+import { usePlaybackSpeed } from "@/hooks/usePlaybackSpeed";
 import { Button } from "@/components/ui/button";
 import { AudioWaveform } from "@/components/AudioWaveform";
 import { 
@@ -75,6 +76,7 @@ export default function MemoPage() {
   const { user } = useAuth();
   const { isLiked, toggleLike, setInitialLikeCount } = useLikes();
   const { isFollowing, toggleFollow, loading: followLoading } = useFollow();
+  const { speed: playbackSpeed, cycleSpeed } = usePlaybackSpeed();
   const [memo, setMemo] = useState<Memo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,10 +85,7 @@ export default function MemoPage() {
   const [audioDuration, setAudioDuration] = useState(0);
   const [showTranscriptDialog, setShowTranscriptDialog] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const PLAYBACK_SPEEDS = [1, 1.2, 1.5, 2];
 
   useEffect(() => {
     async function fetchMemo() {
@@ -169,6 +168,7 @@ export default function MemoPage() {
     if (!memo?.audioUrl || audioRef.current) return audioRef.current;
     
     const audio = new Audio(memo.audioUrl);
+    audio.playbackRate = playbackSpeed;
     audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
     audio.onloadedmetadata = () => setAudioDuration(audio.duration);
     audio.onended = () => {
@@ -177,7 +177,7 @@ export default function MemoPage() {
     };
     audioRef.current = audio;
     return audio;
-  }, [memo?.audioUrl]);
+  }, [memo?.audioUrl, playbackSpeed]);
 
   const togglePlayback = () => {
     if (!memo?.audioUrl) return;
@@ -203,13 +203,13 @@ export default function MemoPage() {
     }
   }, [initAudio, isPlaying]);
 
-  const cyclePlaybackSpeed = () => {
-    const currentIndex = PLAYBACK_SPEEDS.indexOf(playbackSpeed);
-    const nextIndex = (currentIndex + 1) % PLAYBACK_SPEEDS.length;
-    const newSpeed = PLAYBACK_SPEEDS[nextIndex];
-    setPlaybackSpeed(newSpeed);
+  const handleCycleSpeed = () => {
+    cycleSpeed();
     if (audioRef.current) {
-      audioRef.current.playbackRate = newSpeed;
+      const speeds = [1, 1.2, 1.5, 2];
+      const currentIndex = speeds.indexOf(playbackSpeed);
+      const nextSpeed = speeds[(currentIndex + 1) % speeds.length];
+      audioRef.current.playbackRate = nextSpeed;
     }
   };
 
@@ -492,7 +492,7 @@ export default function MemoPage() {
                 
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
-                    onClick={cyclePlaybackSpeed}
+                    onClick={handleCycleSpeed}
                     className="px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-md transition-colors min-w-[40px]"
                   >
                     {playbackSpeed}x
