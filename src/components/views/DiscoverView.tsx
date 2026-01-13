@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { Compass, TrendingUp, Clock, Users, Search, X, Eye, Heart } from "lucide-react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { Compass, TrendingUp, Clock, Users, Search, X, Eye, Heart, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDiscoverMemos, DiscoverFeed, DiscoverMemo } from "@/hooks/useDiscoverMemos";
 import { useFollow } from "@/hooks/useFollow";
@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Play, Pause, UserPlus, UserMinus } from "lucide-react";
-import { useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 
 const FEEDS: { id: DiscoverFeed; label: string; icon: React.ElementType }[] = [
@@ -50,11 +49,40 @@ export function DiscoverView() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  const { memos, loading, refresh } = useDiscoverMemos({
+  const { memos, loading, loadingMore, hasMore, loadMore, refresh } = useDiscoverMemos({
     feed: activeFeed,
     category: selectedCategory === "All" ? null : selectedCategory,
     searchQuery: debouncedSearch,
   });
+
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  // Set up intersection observer for infinite scroll
+  useEffect(() => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1, rootMargin: "100px" }
+    );
+
+    if (loadMoreRef.current) {
+      observerRef.current.observe(loadMoreRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [hasMore, loading, loadingMore, loadMore]);
 
   const handleFeedChange = (feed: DiscoverFeed) => {
     if (feed === "following" && !user) {
@@ -201,6 +229,19 @@ export function DiscoverView() {
             />
           ))}
         </AnimatePresence>
+      </div>
+
+      {/* Load More Trigger */}
+      <div ref={loadMoreRef} className="py-8 flex justify-center">
+        {loadingMore && (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-sm">Loading more...</span>
+          </div>
+        )}
+        {!hasMore && memos.length > 0 && (
+          <p className="text-sm text-muted-foreground">You've reached the end</p>
+        )}
       </div>
     </div>
   );
