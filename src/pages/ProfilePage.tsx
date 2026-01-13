@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFollow } from "@/hooks/useFollow";
 import { useLikes } from "@/hooks/useLikes";
+import { usePlaybackSpeed } from "@/hooks/usePlaybackSpeed";
 import { Button } from "@/components/ui/button";
 import { AudioWaveform } from "@/components/AudioWaveform";
 import { cn } from "@/lib/utils";
@@ -238,14 +239,12 @@ interface ProfileMemoCardProps {
 function ProfileMemoCard({ memo, index }: ProfileMemoCardProps) {
   const { user } = useAuth();
   const { isLiked, toggleLike, setInitialLikeCount } = useLikes();
+  const { speed: playbackSpeed, cycleSpeed } = usePlaybackSpeed();
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(memo.duration);
   const [likeCount, setLikeCount] = useState(memo.likes);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  const PLAYBACK_SPEEDS = [1, 1.2, 1.5, 2];
 
   useEffect(() => {
     setInitialLikeCount(memo.id, memo.likes);
@@ -255,6 +254,7 @@ function ProfileMemoCard({ memo, index }: ProfileMemoCardProps) {
     if (!memo.audioUrl || audioRef.current) return audioRef.current;
     
     const audio = new Audio(memo.audioUrl);
+    audio.playbackRate = playbackSpeed;
     audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
     audio.onloadedmetadata = () => setAudioDuration(audio.duration);
     audio.onended = () => {
@@ -263,7 +263,7 @@ function ProfileMemoCard({ memo, index }: ProfileMemoCardProps) {
     };
     audioRef.current = audio;
     return audio;
-  }, [memo.audioUrl]);
+  }, [memo.audioUrl, playbackSpeed]);
 
   const togglePlayback = () => {
     if (!memo.audioUrl) return;
@@ -289,13 +289,13 @@ function ProfileMemoCard({ memo, index }: ProfileMemoCardProps) {
     }
   }, [initAudio, isPlaying]);
 
-  const cyclePlaybackSpeed = () => {
-    const currentIndex = PLAYBACK_SPEEDS.indexOf(playbackSpeed);
-    const nextIndex = (currentIndex + 1) % PLAYBACK_SPEEDS.length;
-    const newSpeed = PLAYBACK_SPEEDS[nextIndex];
-    setPlaybackSpeed(newSpeed);
+  const handleCycleSpeed = () => {
+    cycleSpeed();
     if (audioRef.current) {
-      audioRef.current.playbackRate = newSpeed;
+      const speeds = [1, 1.2, 1.5, 2];
+      const currentIndex = speeds.indexOf(playbackSpeed);
+      const nextSpeed = speeds[(currentIndex + 1) % speeds.length];
+      audioRef.current.playbackRate = nextSpeed;
     }
   };
 
@@ -359,7 +359,7 @@ function ProfileMemoCard({ memo, index }: ProfileMemoCardProps) {
 
             <div className="flex items-center gap-2 flex-shrink-0">
               <button
-                onClick={cyclePlaybackSpeed}
+                onClick={handleCycleSpeed}
                 className="px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-md transition-colors min-w-[40px]"
               >
                 {playbackSpeed}x
