@@ -244,6 +244,7 @@ export function SettingsView() {
           currentProfile={{
             display_name: profile?.display_name || null,
             avatar_url: profile?.avatar_url || null,
+            bio: profile?.bio || null,
           }}
           onProfileUpdate={(updated) => {
             updateProfile(updated);
