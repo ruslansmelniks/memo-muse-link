@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Bell, Shield, Mic, Palette, HelpCircle, LogOut, Languages } from "lucide-react";
+import { User, Bell, Shield, Mic, Palette, HelpCircle, LogOut, Languages, AlertCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -110,6 +110,27 @@ export function SettingsView() {
           Customize your Mindflow experience
         </p>
       </div>
+
+      {/* Display Name Prompt */}
+      {user && displayName === "User" && (
+        <div 
+          className="glass-card rounded-2xl p-4 mb-6 border border-primary/30 bg-primary/5 animate-fade-in cursor-pointer hover:bg-primary/10 transition-colors"
+          style={{ animationDelay: "75ms" }}
+          onClick={() => setShowProfileEditor(true)}
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+              <AlertCircle className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-foreground">Complete your profile</p>
+              <p className="text-sm text-muted-foreground">
+                Add a display name so others can identify you when you share memos.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Profile Card */}
       <div className="glass-card rounded-2xl p-5 mb-8 animate-fade-in" style={{ animationDelay: "100ms" }}>
