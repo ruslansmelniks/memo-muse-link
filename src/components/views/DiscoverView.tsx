@@ -4,6 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useDiscoverMemos, DiscoverFeed, DiscoverMemo } from "@/hooks/useDiscoverMemos";
 import { useFollow } from "@/hooks/useFollow";
 import { useLikes } from "@/hooks/useLikes";
+import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { PullToRefreshIndicator } from "@/components/PullToRefresh";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Button } from "@/components/ui/button";
@@ -55,6 +57,24 @@ export function DiscoverView() {
     searchQuery: debouncedSearch,
   });
 
+  // Pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    await refresh();
+    toast.success("Feed refreshed");
+  }, [refresh]);
+
+  const {
+    containerRef,
+    pullDistance,
+    isRefreshing,
+    progress,
+    shouldRefresh,
+  } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    threshold: 80,
+    maxPull: 120,
+  });
+
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
@@ -93,155 +113,171 @@ export function DiscoverView() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 pb-32">
-      {/* Header */}
-      <div className="mb-6 animate-fade-in">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center">
-            <Compass className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h2 className="font-display text-3xl font-bold text-foreground">
-              Discover
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              Explore public voice memos from the community
-            </p>
+    <div
+      ref={containerRef}
+      className="relative h-full overflow-y-auto"
+      style={{
+        transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
+        transition: pullDistance === 0 ? "transform 0.2s ease-out" : undefined,
+      }}
+    >
+      <PullToRefreshIndicator
+        pullDistance={pullDistance}
+        isRefreshing={isRefreshing}
+        progress={progress}
+        shouldRefresh={shouldRefresh}
+      />
+
+      <div className="container mx-auto px-4 py-6 pb-32">
+        {/* Header */}
+        <div className="mb-6 animate-fade-in">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center">
+              <Compass className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="font-display text-3xl font-bold text-foreground">
+                Discover
+              </h2>
+              <p className="text-muted-foreground text-sm">
+                Explore public voice memos from the community
+              </p>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Feed Tabs */}
-      <div className="flex gap-2 mb-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
-        {FEEDS.map((feed) => {
-          const Icon = feed.icon;
-          const isActive = activeFeed === feed.id;
-          return (
+        {/* Feed Tabs */}
+        <div className="flex gap-2 mb-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
+          {FEEDS.map((feed) => {
+            const Icon = feed.icon;
+            const isActive = activeFeed === feed.id;
+            return (
+              <button
+                key={feed.id}
+                onClick={() => handleFeedChange(feed.id)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
+                  isActive
+                    ? "bg-foreground text-background"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {feed.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Category Chips */}
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide animate-fade-in" style={{ animationDelay: "100ms" }}>
+          {CATEGORIES.map((cat) => (
             <button
-              key={feed.id}
-              onClick={() => handleFeedChange(feed.id)}
+              key={cat}
+              onClick={() => setSelectedCategory(cat === "All" ? null : cat)}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
-                isActive
-                  ? "bg-foreground text-background"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
+                (cat === "All" && !selectedCategory) || selectedCategory === cat
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
               )}
             >
-              <Icon className="h-4 w-4" />
-              {feed.label}
+              {cat}
             </button>
-          );
-        })}
-      </div>
-
-      {/* Category Chips */}
-      <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide animate-fade-in" style={{ animationDelay: "100ms" }}>
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat === "All" ? null : cat)}
-            className={cn(
-              "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
-              (cat === "All" && !selectedCategory) || selectedCategory === cat
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted/50 text-muted-foreground hover:bg-muted"
-            )}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-
-      {/* Search Bar */}
-      <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "150ms" }}>
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search public memos..."
-          className="w-full pl-12 pr-10 py-3 rounded-2xl bg-muted border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-        />
-        {searchQuery && (
-          <button
-            onClick={() => setSearchQuery("")}
-            className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        )}
-      </div>
-
-      {/* Loading State */}
-      {loading && (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="bg-card rounded-2xl p-6 border border-border/50 animate-pulse"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-muted" />
-                <div className="space-y-2">
-                  <div className="h-4 w-24 bg-muted rounded" />
-                  <div className="h-3 w-16 bg-muted rounded" />
-                </div>
-              </div>
-              <div className="h-5 w-3/4 bg-muted rounded mb-3" />
-              <div className="h-16 bg-muted rounded-xl mb-4" />
-              <div className="h-4 w-full bg-muted rounded" />
-            </div>
           ))}
         </div>
-      )}
 
-      {/* Empty States */}
-      {!loading && memos.length === 0 && (
-        <div className="text-center py-12">
-          {activeFeed === "following" ? (
-            <>
-              <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="font-display font-semibold text-lg mb-2">No memos yet</h3>
-              <p className="text-muted-foreground">
-                {user ? "Follow some creators to see their memos here" : "Sign in to follow creators"}
-              </p>
-            </>
-          ) : (
-            <>
-              <Compass className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="font-display font-semibold text-lg mb-2">No memos found</h3>
-              <p className="text-muted-foreground">
-                {searchQuery ? "Try a different search term" : "Be the first to share a public memo!"}
-              </p>
-            </>
+        {/* Search Bar */}
+        <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "150ms" }}>
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search public memos..."
+            className="w-full pl-12 pr-10 py-3 rounded-2xl bg-muted border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
           )}
         </div>
-      )}
 
-      {/* Memo Cards */}
-      <div className="space-y-4">
-        <AnimatePresence mode="popLayout">
-          {memos.map((memo, index) => (
-            <DiscoverMemoCard
-              key={memo.id}
-              memo={memo}
-              index={index}
-            />
-          ))}
-        </AnimatePresence>
-      </div>
-
-      {/* Load More Trigger */}
-      <div ref={loadMoreRef} className="py-8 flex justify-center">
-        {loadingMore && (
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-sm">Loading more...</span>
+        {/* Loading State */}
+        {loading && (
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="bg-card rounded-2xl p-6 border border-border/50 animate-pulse"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-muted" />
+                  <div className="space-y-2">
+                    <div className="h-4 w-24 bg-muted rounded" />
+                    <div className="h-3 w-16 bg-muted rounded" />
+                  </div>
+                </div>
+                <div className="h-5 w-3/4 bg-muted rounded mb-3" />
+                <div className="h-16 bg-muted rounded-xl mb-4" />
+                <div className="h-4 w-full bg-muted rounded" />
+              </div>
+            ))}
           </div>
         )}
-        {!hasMore && memos.length > 0 && (
-          <p className="text-sm text-muted-foreground">You've reached the end</p>
+
+        {/* Empty States */}
+        {!loading && memos.length === 0 && (
+          <div className="text-center py-12">
+            {activeFeed === "following" ? (
+              <>
+                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="font-display font-semibold text-lg mb-2">No memos yet</h3>
+                <p className="text-muted-foreground">
+                  {user ? "Follow some creators to see their memos here" : "Sign in to follow creators"}
+                </p>
+              </>
+            ) : (
+              <>
+                <Compass className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="font-display font-semibold text-lg mb-2">No memos found</h3>
+                <p className="text-muted-foreground">
+                  {searchQuery ? "Try a different search term" : "Be the first to share a public memo!"}
+                </p>
+              </>
+            )}
+          </div>
         )}
+
+        {/* Memo Cards */}
+        <div className="space-y-4">
+          <AnimatePresence mode="popLayout">
+            {memos.map((memo, index) => (
+              <DiscoverMemoCard
+                key={memo.id}
+                memo={memo}
+                index={index}
+              />
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {/* Load More Trigger */}
+        <div ref={loadMoreRef} className="py-8 flex justify-center">
+          {loadingMore && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm">Loading more...</span>
+            </div>
+          )}
+          {!hasMore && memos.length > 0 && (
+            <p className="text-sm text-muted-foreground">You've reached the end</p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -371,7 +407,7 @@ function DiscoverMemoCard({ memo, index }: DiscoverMemoCardProps) {
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-3">
+        <Link to={memo.author.id ? `/profile/${memo.author.id}` : "#"} className="flex items-center gap-3 group">
           {memo.author.avatar ? (
             <img
               src={memo.author.avatar}
@@ -384,7 +420,7 @@ function DiscoverMemoCard({ memo, index }: DiscoverMemoCardProps) {
             </div>
           )}
           <div>
-            <p className="font-medium text-foreground">{memo.author.name}</p>
+            <p className="font-medium text-foreground group-hover:text-primary transition-colors">{memo.author.name}</p>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>{formatTimeAgo(memo.createdAt)}</span>
               {memo.language && LANGUAGE_DISPLAY[memo.language] && (
@@ -398,7 +434,7 @@ function DiscoverMemoCard({ memo, index }: DiscoverMemoCardProps) {
               )}
             </div>
           </div>
-        </div>
+        </Link>
         
         {/* Follow Button */}
         {!isOwnMemo && memo.author.id && (
