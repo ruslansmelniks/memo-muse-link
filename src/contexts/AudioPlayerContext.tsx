@@ -17,6 +17,7 @@ interface AudioPlayerContextType {
   currentTime: number;
   duration: number;
   playbackSpeed: number;
+  queue: AudioTrack[];
   play: (track: AudioTrack) => void;
   pause: () => void;
   resume: () => void;
@@ -25,6 +26,11 @@ interface AudioPlayerContextType {
   setSpeed: (speed: number) => void;
   cycleSpeed: () => void;
   isCurrentTrack: (id: string) => boolean;
+  addToQueue: (track: AudioTrack) => void;
+  removeFromQueue: (trackId: string) => void;
+  clearQueue: () => void;
+  playNext: () => void;
+  isInQueue: (id: string) => boolean;
 }
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | null>(null);
@@ -37,6 +43,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [queue, setQueue] = useState<AudioTrack[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialize audio element
@@ -46,10 +53,6 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     
     audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
     audio.onloadedmetadata = () => setDuration(audio.duration);
-    audio.onended = () => {
-      setIsPlaying(false);
-      setCurrentTime(0);
-    };
     audio.onpause = () => setIsPlaying(false);
     audio.onplay = () => setIsPlaying(true);
     
@@ -60,6 +63,32 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
       audio.src = "";
     };
   }, []);
+
+  // Handle track ended - play next in queue
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(0);
+      
+      // Auto-play next track in queue
+      if (queue.length > 0) {
+        const nextTrack = queue[0];
+        setQueue(prev => prev.slice(1));
+        setCurrentTrack(nextTrack);
+        audio.src = nextTrack.audioUrl;
+        audio.playbackRate = playbackSpeed;
+        audio.play().catch(console.error);
+      }
+    };
+
+    audio.onended = handleEnded;
+    return () => {
+      audio.onended = null;
+    };
+  }, [queue, playbackSpeed]);
 
   const play = useCallback((track: AudioTrack) => {
     const audio = audioRef.current;
@@ -125,6 +154,37 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     return currentTrack?.id === id;
   }, [currentTrack]);
 
+  const addToQueue = useCallback((track: AudioTrack) => {
+    // Don't add duplicates
+    setQueue(prev => {
+      if (prev.some(t => t.id === track.id)) return prev;
+      return [...prev, track];
+    });
+  }, []);
+
+  const removeFromQueue = useCallback((trackId: string) => {
+    setQueue(prev => prev.filter(t => t.id !== trackId));
+  }, []);
+
+  const clearQueue = useCallback(() => {
+    setQueue([]);
+  }, []);
+
+  const playNext = useCallback(() => {
+    if (queue.length === 0) {
+      stop();
+      return;
+    }
+    
+    const nextTrack = queue[0];
+    setQueue(prev => prev.slice(1));
+    play(nextTrack);
+  }, [queue, play, stop]);
+
+  const isInQueue = useCallback((id: string) => {
+    return queue.some(t => t.id === id);
+  }, [queue]);
+
   return (
     <AudioPlayerContext.Provider
       value={{
@@ -133,6 +193,7 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         currentTime,
         duration,
         playbackSpeed,
+        queue,
         play,
         pause,
         resume,
@@ -141,6 +202,11 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
         setSpeed,
         cycleSpeed,
         isCurrentTrack,
+        addToQueue,
+        removeFromQueue,
+        clearQueue,
+        playNext,
+        isInQueue,
       }}
     >
       {children}
