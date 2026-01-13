@@ -194,17 +194,33 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
         </div>
 
         {/* Audio Visualizer */}
-        <div className="flex items-center justify-center gap-1.5 h-24">
+        <div className="flex items-center justify-center gap-1 h-28">
           {audioLevels.map((level, i) => (
-            <div
+            <motion.div
               key={i}
               className={cn(
-                "w-2 rounded-full transition-all duration-100",
-                isRecording && !isPaused ? "bg-foreground/60" : "bg-muted-foreground/30"
+                "w-1.5 rounded-full",
+                isRecording && !isPaused 
+                  ? "bg-gradient-to-t from-primary/60 to-primary" 
+                  : "bg-muted-foreground/20"
               )}
+              initial={{ height: "15%" }}
+              animate={{ 
+                height: isRecording && !isPaused 
+                  ? `${Math.max(15, level * 100)}%` 
+                  : "15%",
+                scaleY: isRecording && !isPaused ? [1, 1.1, 1] : 1,
+              }}
+              transition={{
+                height: { duration: 0.08, ease: "easeOut" },
+                scaleY: { 
+                  duration: 0.3 + (i * 0.02), 
+                  repeat: isRecording && !isPaused ? Infinity : 0,
+                  ease: "easeInOut"
+                }
+              }}
               style={{
-                height: `${level * 100}%`,
-                animationDelay: `${i * 50}ms`,
+                originY: 0.5,
               }}
             />
           ))}
