@@ -4,8 +4,11 @@ import { useAuth } from "@/contexts/AuthContext";
 
 interface UserPreferences {
   followingIds: Set<string>;
+  followingNames: Map<string, string>; // userId -> displayName
   categoryWeights: Map<string, number>;
   topCategories: string[];
+  ownCategories: Set<string>; // Categories from user's own memos
+  likedCategories: Set<string>; // Categories from liked memos
   isLoaded: boolean;
 }
 
@@ -13,8 +16,11 @@ export function useUserPreferences() {
   const { user } = useAuth();
   const [preferences, setPreferences] = useState<UserPreferences>({
     followingIds: new Set(),
+    followingNames: new Map(),
     categoryWeights: new Map(),
     topCategories: [],
+    ownCategories: new Set(),
+    likedCategories: new Set(),
     isLoaded: false,
   });
 
@@ -22,8 +28,11 @@ export function useUserPreferences() {
     if (!user) {
       setPreferences({
         followingIds: new Set(),
+        followingNames: new Map(),
         categoryWeights: new Map(),
         topCategories: [],
+        ownCategories: new Set(),
+        likedCategories: new Set(),
         isLoaded: true,
       });
       return;
@@ -31,14 +40,31 @@ export function useUserPreferences() {
 
     async function loadPreferences() {
       const categoryCount = new Map<string, number>();
+      const ownCategories = new Set<string>();
+      const likedCategories = new Set<string>();
 
-      // Load who the user follows
+      // Load who the user follows with their names
       const { data: follows } = await supabase
         .from("follows")
         .select("following_id")
         .eq("follower_id", user.id);
 
       const followingIds = new Set(follows?.map((f) => f.following_id) || []);
+      
+      // Get display names for followed users
+      const followingNames = new Map<string, string>();
+      if (followingIds.size > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, display_name")
+          .in("user_id", [...followingIds]);
+        
+        profiles?.forEach((p) => {
+          if (p.display_name) {
+            followingNames.set(p.user_id, p.display_name);
+          }
+        });
+      }
 
       // Load categories from user's own memos (weighted x1)
       const { data: ownMemos } = await supabase
@@ -50,6 +76,7 @@ export function useUserPreferences() {
       ownMemos?.forEach((m) => {
         (m.categories || []).forEach((cat: string) => {
           categoryCount.set(cat, (categoryCount.get(cat) || 0) + 1);
+          ownCategories.add(cat);
         });
       });
 
@@ -69,6 +96,7 @@ export function useUserPreferences() {
         likedMemoDetails?.forEach((m) => {
           (m.categories || []).forEach((cat: string) => {
             categoryCount.set(cat, (categoryCount.get(cat) || 0) + 2);
+            likedCategories.add(cat);
           });
         });
       }
@@ -100,8 +128,11 @@ export function useUserPreferences() {
 
       setPreferences({
         followingIds,
+        followingNames,
         categoryWeights: categoryCount,
         topCategories,
+        ownCategories,
+        likedCategories,
         isLoaded: true,
       });
     }
