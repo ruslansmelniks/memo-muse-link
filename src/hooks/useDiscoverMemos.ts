@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -29,16 +29,19 @@ interface UseDiscoverMemosOptions {
   feed: DiscoverFeed;
   category?: string | null;
   searchQuery?: string;
-  limit?: number;
+  pageSize?: number;
 }
 
 export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
-  const { feed, category, searchQuery, limit = 20 } = options;
+  const { feed, category, searchQuery, pageSize = 10 } = options;
   const { user } = useAuth();
   const [memos, setMemos] = useState<DiscoverMemo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
   const [followingIds, setFollowingIds] = useState<string[]>([]);
+  const offsetRef = useRef(0);
 
   // Load following list for the "following" feed
   useEffect(() => {
@@ -58,8 +61,12 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
     loadFollowing();
   }, [user, feed]);
 
-  const loadMemos = useCallback(async () => {
-    setLoading(true);
+  const fetchMemos = useCallback(async (offset: number, isLoadMore: boolean = false) => {
+    if (isLoadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -83,11 +90,10 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
           language
         `)
         .eq("is_public", true)
-        .limit(limit);
+        .range(offset, offset + pageSize - 1);
 
       // Apply feed-specific ordering
       if (feed === "trending") {
-        // Trending: Sort by likes + view_count, weighted toward recent
         query = query
           .order("likes", { ascending: false })
           .order("created_at", { ascending: false });
@@ -97,6 +103,8 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
         if (followingIds.length === 0) {
           setMemos([]);
           setLoading(false);
+          setLoadingMore(false);
+          setHasMore(false);
           return;
         }
         query = query
@@ -119,10 +127,13 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
       if (fetchError) throw fetchError;
 
       if (!data) {
-        setMemos([]);
-        setLoading(false);
+        if (!isLoadMore) setMemos([]);
+        setHasMore(false);
         return;
       }
+
+      // Check if we have more data
+      setHasMore(data.length === pageSize);
 
       // Fetch author profiles
       const userIds = [...new Set(data.map(m => m.user_id).filter(Boolean))];
@@ -156,27 +167,47 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
         language: m.language,
       }));
 
-      setMemos(mappedMemos);
+      if (isLoadMore) {
+        setMemos(prev => [...prev, ...mappedMemos]);
+      } else {
+        setMemos(mappedMemos);
+      }
     } catch (err) {
       console.error("Error loading discover memos:", err);
       setError("Failed to load memos");
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  }, [feed, category, searchQuery, limit, followingIds]);
+  }, [feed, category, searchQuery, pageSize, followingIds]);
 
+  // Reset and load when filters change
   useEffect(() => {
-    loadMemos();
-  }, [loadMemos]);
+    offsetRef.current = 0;
+    setHasMore(true);
+    fetchMemos(0, false);
+  }, [fetchMemos]);
+
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    const newOffset = offsetRef.current + pageSize;
+    offsetRef.current = newOffset;
+    fetchMemos(newOffset, true);
+  }, [fetchMemos, loadingMore, hasMore, pageSize]);
 
   const refresh = useCallback(() => {
-    loadMemos();
-  }, [loadMemos]);
+    offsetRef.current = 0;
+    setHasMore(true);
+    fetchMemos(0, false);
+  }, [fetchMemos]);
 
   return {
     memos,
     loading,
+    loadingMore,
     error,
+    hasMore,
+    loadMore,
     refresh,
   };
 }
