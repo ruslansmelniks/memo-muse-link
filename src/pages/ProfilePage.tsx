@@ -15,6 +15,7 @@ interface AuthorProfile {
   userId: string;
   displayName: string;
   avatarUrl: string | null;
+  bio: string | null;
 }
 
 interface AuthorMemo {
@@ -51,7 +52,7 @@ export default function ProfilePage() {
       // Load profile
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("user_id, display_name, avatar_url")
+        .select("user_id, display_name, avatar_url, bio")
         .eq("user_id", userId)
         .maybeSingle();
 
@@ -60,6 +61,7 @@ export default function ProfilePage() {
           userId: profileData.user_id,
           displayName: profileData.display_name || "Anonymous",
           avatarUrl: profileData.avatar_url,
+          bio: profileData.bio,
         });
       }
 
@@ -173,6 +175,10 @@ export default function ProfilePage() {
           )}
           
           <h2 className="font-display text-2xl font-bold mb-2">{profile.displayName}</h2>
+          
+          {profile.bio && (
+            <p className="text-muted-foreground text-sm max-w-md mb-4">{profile.bio}</p>
+          )}
           
           <div className="flex items-center gap-6 text-sm text-muted-foreground mb-4">
             <div>

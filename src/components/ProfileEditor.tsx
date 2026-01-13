@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Camera, Loader2, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -16,6 +17,7 @@ import { toast } from "sonner";
 interface Profile {
   display_name: string | null;
   avatar_url: string | null;
+  bio: string | null;
 }
 
 interface ProfileEditorProps {
@@ -35,6 +37,7 @@ export function ProfileEditor({
 }: ProfileEditorProps) {
   const [displayName, setDisplayName] = useState(currentProfile.display_name || "");
   const [avatarUrl, setAvatarUrl] = useState(currentProfile.avatar_url || "");
+  const [bio, setBio] = useState(currentProfile.bio || "");
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +101,7 @@ export function ProfileEditor({
         .update({
           display_name: displayName.trim(),
           avatar_url: avatarUrl || null,
+          bio: bio.trim() || null,
         })
         .eq("user_id", userId);
 
@@ -106,6 +110,7 @@ export function ProfileEditor({
       onProfileUpdate({
         display_name: displayName.trim(),
         avatar_url: avatarUrl || null,
+        bio: bio.trim() || null,
       });
       toast.success("Profile updated");
       onClose();
@@ -191,6 +196,23 @@ export function ProfileEditor({
             />
             <p className="text-xs text-muted-foreground">
               This is how others will see you on shared memos
+            </p>
+          </div>
+
+          {/* Bio */}
+          <div className="space-y-2">
+            <Label htmlFor="bio">Bio</Label>
+            <Textarea
+              id="bio"
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Tell others about yourself..."
+              maxLength={160}
+              rows={3}
+              className="resize-none"
+            />
+            <p className="text-xs text-muted-foreground">
+              {bio.length}/160 characters
             </p>
           </div>
         </div>
