@@ -5,6 +5,13 @@ import { useUserPreferences } from "./useUserPreferences";
 
 export type DiscoverFeed = "for-you" | "trending" | "recent" | "following";
 
+export type RecommendationReason = {
+  type: "similar-topic" | "following" | "interest" | "trending" | "recent";
+  text: string;
+  category?: string;
+  authorName?: string;
+};
+
 export interface DiscoverMemo {
   id: string;
   title: string;
@@ -24,6 +31,7 @@ export interface DiscoverMemo {
   likes: number;
   viewCount: number;
   language: string | null;
+  recommendationReason?: RecommendationReason;
 }
 
 interface UseDiscoverMemosOptions {
@@ -33,53 +41,120 @@ interface UseDiscoverMemosOptions {
   pageSize?: number;
 }
 
-// Score a memo based on user preferences
-function calculateMemoScore(
+interface ScoredMemo {
+  memo: DiscoverMemo;
+  score: number;
+  reason: RecommendationReason;
+}
+
+// Score a memo based on user preferences and return reason
+function calculateMemoScoreWithReason(
   memo: DiscoverMemo,
   followingIds: Set<string>,
+  followingNames: Map<string, string>,
   categoryWeights: Map<string, number>,
-  topCategories: string[]
-): number {
+  topCategories: string[],
+  ownCategories: Set<string>,
+  likedCategories: Set<string>
+): { score: number; reason: RecommendationReason } {
   let score = 0;
+  let reason: RecommendationReason = { type: "trending", text: "Trending in the community" };
+  let reasonPriority = 0; // Higher = more important
   
-  // Following bonus (highest priority) - +100 points
+  // Check for similar topic to user's own memos (HIGHEST priority)
+  const matchingOwnCategory = memo.categories.find((cat) => ownCategories.has(cat));
+  if (matchingOwnCategory) {
+    score += 150; // Highest bonus
+    if (reasonPriority < 100) {
+      reason = {
+        type: "similar-topic",
+        text: `Similar to your memos about ${matchingOwnCategory}`,
+        category: matchingOwnCategory,
+      };
+      reasonPriority = 100;
+    }
+  }
+  
+  // Following bonus (second highest priority)
   if (followingIds.has(memo.author.id)) {
     score += 100;
+    if (reasonPriority < 90) {
+      const authorName = followingNames.get(memo.author.id) || memo.author.name;
+      reason = {
+        type: "following",
+        text: `Because you follow ${authorName}`,
+        authorName,
+      };
+      reasonPriority = 90;
+    }
+  }
+  
+  // Category match from liked memos
+  const matchingLikedCategory = memo.categories.find((cat) => likedCategories.has(cat));
+  if (matchingLikedCategory) {
+    score += 50;
+    if (reasonPriority < 80) {
+      reason = {
+        type: "interest",
+        text: `Based on your interest in ${matchingLikedCategory}`,
+        category: matchingLikedCategory,
+      };
+      reasonPriority = 80;
+    }
   }
   
   // Category match bonus (based on weighted preferences)
   memo.categories.forEach((cat) => {
     const weight = categoryWeights.get(cat) || 0;
-    score += weight * 10; // Multiply by 10 for significance
+    score += weight * 10;
   });
   
-  // Top category match bonus (extra points for top 3 categories)
+  // Top category match bonus
   const topThree = topCategories.slice(0, 3);
-  memo.categories.forEach((cat) => {
-    if (topThree.includes(cat)) {
-      score += 25;
+  const matchingTopCategory = memo.categories.find((cat) => topThree.includes(cat));
+  if (matchingTopCategory) {
+    score += 25;
+    if (reasonPriority < 70) {
+      reason = {
+        type: "interest",
+        text: `Based on your interest in ${matchingTopCategory}`,
+        category: matchingTopCategory,
+      };
+      reasonPriority = 70;
     }
-  });
-  
-  // Engagement bonus (normalized)
-  score += Math.min(memo.likes * 2, 50); // Cap at 50 points
-  score += Math.min(memo.viewCount * 0.1, 20); // Cap at 20 points
-  
-  // Recency bonus (memos from last 24h get bonus)
-  const hoursSinceCreation = (Date.now() - memo.createdAt.getTime()) / (1000 * 60 * 60);
-  if (hoursSinceCreation < 24) {
-    score += 30 * (1 - hoursSinceCreation / 24); // Up to 30 points, decaying
-  } else if (hoursSinceCreation < 72) {
-    score += 15 * (1 - (hoursSinceCreation - 24) / 48); // Up to 15 points for 24-72h
   }
   
-  return score;
+  // Engagement bonus (normalized)
+  score += Math.min(memo.likes * 2, 50);
+  score += Math.min(memo.viewCount * 0.1, 20);
+  
+  // Recency bonus
+  const hoursSinceCreation = (Date.now() - memo.createdAt.getTime()) / (1000 * 60 * 60);
+  if (hoursSinceCreation < 24) {
+    score += 30 * (1 - hoursSinceCreation / 24);
+    if (reasonPriority < 50 && hoursSinceCreation < 6) {
+      reason = { type: "recent", text: "New memo posted recently" };
+      reasonPriority = 50;
+    }
+  } else if (hoursSinceCreation < 72) {
+    score += 15 * (1 - (hoursSinceCreation - 24) / 48);
+  }
+  
+  return { score, reason };
 }
 
 export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
   const { feed, categories = [], searchQuery, pageSize = 20 } = options;
   const { user } = useAuth();
-  const { followingIds, categoryWeights, topCategories, isLoaded: preferencesLoaded } = useUserPreferences();
+  const { 
+    followingIds, 
+    followingNames,
+    categoryWeights, 
+    topCategories, 
+    ownCategories,
+    likedCategories,
+    isLoaded: preferencesLoaded 
+  } = useUserPreferences();
   const [memos, setMemos] = useState<DiscoverMemo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -238,11 +313,19 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
 
         // For "for-you" feed, score and sort memos
         if (feed === "for-you" && preferencesLoaded) {
-          // Score each memo
-          const scoredMemos = mappedMemos.map((memo) => ({
-            memo,
-            score: calculateMemoScore(memo, followingIds, categoryWeights, topCategories),
-          }));
+          // Score each memo with reasons
+          const scoredMemos: ScoredMemo[] = mappedMemos.map((memo) => {
+            const { score, reason } = calculateMemoScoreWithReason(
+              memo, 
+              followingIds, 
+              followingNames,
+              categoryWeights, 
+              topCategories,
+              ownCategories,
+              likedCategories
+            );
+            return { memo: { ...memo, recommendationReason: reason }, score, reason };
+          });
           
           // Sort by score descending
           scoredMemos.sort((a, b) => b.score - a.score);
@@ -269,7 +352,7 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
         setLoadingMore(false);
       }
     },
-    [feed, categories, searchQuery, pageSize, followingIdsForFeed, followingIds, categoryWeights, topCategories, preferencesLoaded, user]
+    [feed, categories, searchQuery, pageSize, followingIdsForFeed, followingIds, followingNames, categoryWeights, topCategories, ownCategories, likedCategories, preferencesLoaded, user]
   );
 
   // Reset and load when filters change

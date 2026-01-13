@@ -1,4 +1,4 @@
-import { Heart, Eye, Bookmark, Play, Pause, ListPlus, Check, UserPlus, UserCheck } from "lucide-react";
+import { Heart, Eye, Bookmark, Play, Pause, ListPlus, Check, UserPlus, UserCheck, Sparkles, UserCircle, TrendingUp, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -177,9 +177,33 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
     }
   };
 
+  // Get recommendation icon based on reason type
+  const getRecommendationIcon = () => {
+    if (!memo.recommendationReason) return null;
+    switch (memo.recommendationReason.type) {
+      case "similar-topic":
+        return <Sparkles className="h-3 w-3" />;
+      case "following":
+        return <UserCircle className="h-3 w-3" />;
+      case "interest":
+        return <TrendingUp className="h-3 w-3" />;
+      case "recent":
+        return <Clock className="h-3 w-3" />;
+      default:
+        return <TrendingUp className="h-3 w-3" />;
+    }
+  };
+
   return (
     <Card className={cn("border-0 shadow-none bg-transparent", className)}>
       <CardContent className="p-0">
+        {/* Recommendation Reason */}
+        {memo.recommendationReason && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+            {getRecommendationIcon()}
+            <span>{memo.recommendationReason.text}</span>
+          </div>
+        )}
         {/* Author Row */}
         <div className="flex items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-3 min-w-0">
