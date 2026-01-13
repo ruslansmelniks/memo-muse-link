@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFollow } from "@/hooks/useFollow";
 import { useLikes } from "@/hooks/useLikes";
 import { usePlaybackSpeed } from "@/hooks/usePlaybackSpeed";
+import { useHaptics } from "@/hooks/useHaptics";
 import { AudioWaveform } from "@/components/AudioWaveform";
 import { ShareButton } from "@/components/ShareButton";
 import { Button } from "@/components/ui/button";
@@ -24,18 +25,45 @@ const LANGUAGE_DISPLAY: Record<string, { flag: string; short: string }> = {
   "auto": { flag: "🌐", short: "Auto" },
 };
 
+// Map categories to gradient class names
+const CATEGORY_GRADIENTS: Record<string, string> = {
+  "Ideas": "gradient-story-ideas",
+  "Nuggets": "gradient-story-nuggets",
+  "Reflections": "gradient-story-reflections",
+  "Goals": "gradient-story-goals",
+  "Gratitude": "gradient-story-gratitude",
+  "Creative": "gradient-story-creative",
+};
+
+function getCategoryGradient(categories: string[]): string {
+  if (categories.length === 0) return "gradient-story-default";
+  // Use the first category's gradient
+  const firstCategory = categories[0];
+  return CATEGORY_GRADIENTS[firstCategory] || "gradient-story-default";
+}
+
 interface StoryMemoCardProps {
   memo: DiscoverMemo;
   isActive: boolean;
   onSwipeUp: () => void;
   onSwipeDown: () => void;
+  onAudioEnded?: () => void;
+  autoPlayEnabled?: boolean;
 }
 
-export function StoryMemoCard({ memo, isActive, onSwipeUp, onSwipeDown }: StoryMemoCardProps) {
+export function StoryMemoCard({ 
+  memo, 
+  isActive, 
+  onSwipeUp, 
+  onSwipeDown,
+  onAudioEnded,
+  autoPlayEnabled = true,
+}: StoryMemoCardProps) {
   const { user } = useAuth();
   const { isFollowing, toggleFollow, loading: followLoading } = useFollow();
   const { isLiked, toggleLike, setInitialLikeCount } = useLikes();
   const { speed: playbackSpeed, cycleSpeed: cyclePlaybackSpeed } = usePlaybackSpeed();
+  const haptics = useHaptics();
   
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -47,14 +75,17 @@ export function StoryMemoCard({ memo, isActive, onSwipeUp, onSwipeDown }: StoryM
   const opacity = useTransform(y, [-200, 0, 200], [0.5, 1, 0.5]);
   const scale = useTransform(y, [-200, 0, 200], [0.95, 1, 0.95]);
 
+  // Get the gradient class based on categories
+  const gradientClass = getCategoryGradient(memo.categories);
+
   // Initialize like count
   useEffect(() => {
     setInitialLikeCount(memo.id, memo.likes);
   }, [memo.id, memo.likes, setInitialLikeCount]);
 
-  // Track view when card becomes active
+  // Track view when card becomes active (skip for demo memos)
   useEffect(() => {
-    if (isActive) {
+    if (isActive && !memo.id.startsWith("demo-")) {
       supabase.rpc("increment_view_count", { memo_uuid: memo.id });
     }
   }, [isActive, memo.id]);
@@ -87,15 +118,21 @@ export function StoryMemoCard({ memo, isActive, onSwipeUp, onSwipeDown }: StoryM
     audio.onended = () => {
       setIsPlaying(false);
       setCurrentTime(0);
+      // Trigger auto-play next if enabled
+      if (autoPlayEnabled && onAudioEnded) {
+        onAudioEnded();
+      }
     };
     audioRef.current = audio;
     return audio;
-  }, [memo.audioUrl, playbackSpeed]);
+  }, [memo.audioUrl, playbackSpeed, autoPlayEnabled, onAudioEnded]);
 
   const togglePlayback = () => {
     if (!memo.audioUrl) return;
     const audio = initAudio();
     if (!audio) return;
+
+    haptics.impact("light");
 
     if (isPlaying) {
       audio.pause();
@@ -117,6 +154,7 @@ export function StoryMemoCard({ memo, isActive, onSwipeUp, onSwipeDown }: StoryM
   }, [initAudio, isPlaying]);
 
   const handleCycleSpeed = () => {
+    haptics.selection();
     cyclePlaybackSpeed();
     if (audioRef.current) {
       const speeds = [1, 1.2, 1.5, 2];
@@ -131,9 +169,19 @@ export function StoryMemoCard({ memo, isActive, onSwipeUp, onSwipeDown }: StoryM
       toast.error("Sign in to like memos");
       return;
     }
+    
+    // Skip DB operations for demo memos
+    if (memo.id.startsWith("demo-")) {
+      haptics.notification("success");
+      toast.success("Demo memo liked!");
+      return;
+    }
+    
+    haptics.impact("medium");
     const result = await toggleLike(memo.id, likeCount);
     if (result.success) {
       setLikeCount(result.newCount);
+      haptics.notification("success");
     }
   };
 
@@ -144,8 +192,17 @@ export function StoryMemoCard({ memo, isActive, onSwipeUp, onSwipeDown }: StoryM
     }
     if (!memo.author.id) return;
     
+    // Skip DB operations for demo memos
+    if (memo.id.startsWith("demo-")) {
+      haptics.notification("success");
+      toast.success("Demo creator followed!");
+      return;
+    }
+    
+    haptics.impact("medium");
     const success = await toggleFollow(memo.author.id);
     if (success) {
+      haptics.notification("success");
       toast.success(isFollowing(memo.author.id) ? "Unfollowed" : "Following");
     }
   };
@@ -156,8 +213,10 @@ export function StoryMemoCard({ memo, isActive, onSwipeUp, onSwipeDown }: StoryM
     const offset = info.offset.y;
 
     if (offset < -threshold || velocity < -500) {
+      haptics.impact("light");
       onSwipeUp();
     } else if (offset > threshold || velocity > 500) {
+      haptics.impact("light");
       onSwipeDown();
     }
     
@@ -193,13 +252,20 @@ export function StoryMemoCard({ memo, isActive, onSwipeUp, onSwipeDown }: StoryM
       dragConstraints={{ top: 0, bottom: 0 }}
       dragElastic={0.2}
       onDragEnd={handleDragEnd}
-      className="absolute inset-0 flex flex-col justify-between px-6 py-8 touch-pan-x"
+      className={cn(
+        "absolute inset-0 flex flex-col justify-between px-6 py-8 touch-pan-x transition-all duration-500",
+        gradientClass
+      )}
     >
+      {/* Gradient overlay for better text readability */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-transparent to-background/40 pointer-events-none" />
+
       {/* Top Section - Author */}
-      <div className="flex items-center justify-between">
+      <div className="relative flex items-center justify-between z-10">
         <Link 
-          to={memo.author.id ? `/profile/${memo.author.id}` : "#"} 
+          to={memo.author.id && !memo.id.startsWith("demo-") ? `/profile/${memo.author.id}` : "#"} 
           className="flex items-center gap-3 group"
+          onClick={() => haptics.selection()}
         >
           {memo.author.avatar ? (
             <img
@@ -254,9 +320,9 @@ export function StoryMemoCard({ memo, isActive, onSwipeUp, onSwipeDown }: StoryM
       </div>
 
       {/* Middle Section - Content */}
-      <div className="flex-1 flex flex-col justify-center py-8">
+      <div className="relative flex-1 flex flex-col justify-center py-8 z-10">
         {/* Title */}
-        <Link to={`/memo/${memo.id}`}>
+        <Link to={memo.id.startsWith("demo-") ? "#" : `/memo/${memo.id}`} onClick={() => haptics.selection()}>
           <h2 className="font-display text-2xl md:text-3xl font-bold text-foreground mb-4 leading-tight hover:text-primary transition-colors">
             {memo.title}
           </h2>
@@ -315,7 +381,7 @@ export function StoryMemoCard({ memo, isActive, onSwipeUp, onSwipeDown }: StoryM
             {memo.categories.slice(0, 3).map((category) => (
               <span
                 key={category}
-                className="px-3 py-1.5 rounded-full text-xs font-medium bg-muted/50 text-muted-foreground"
+                className="px-3 py-1.5 rounded-full text-xs font-medium bg-background/60 backdrop-blur-sm text-foreground border border-border/30"
               >
                 {category}
               </span>
@@ -325,7 +391,7 @@ export function StoryMemoCard({ memo, isActive, onSwipeUp, onSwipeDown }: StoryM
       </div>
 
       {/* Bottom Section - Actions */}
-      <div className="flex items-center justify-between">
+      <div className="relative flex items-center justify-between z-10">
         <div className="flex items-center gap-6">
           {/* Like Button */}
           <motion.button
@@ -334,10 +400,10 @@ export function StoryMemoCard({ memo, isActive, onSwipeUp, onSwipeDown }: StoryM
             className="flex flex-col items-center gap-1"
           >
             <div className={cn(
-              "w-12 h-12 rounded-full flex items-center justify-center transition-colors",
+              "w-12 h-12 rounded-full flex items-center justify-center transition-colors backdrop-blur-sm",
               memoIsLiked 
-                ? "bg-red-500/10 text-red-500" 
-                : "bg-muted text-muted-foreground hover:text-foreground"
+                ? "bg-red-500/20 text-red-500" 
+                : "bg-background/60 text-muted-foreground hover:text-foreground"
             )}>
               <Heart className={cn("h-6 w-6", memoIsLiked && "fill-current")} />
             </div>
@@ -346,7 +412,7 @@ export function StoryMemoCard({ memo, isActive, onSwipeUp, onSwipeDown }: StoryM
 
           {/* View Count */}
           <div className="flex flex-col items-center gap-1">
-            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+            <div className="w-12 h-12 rounded-full bg-background/60 backdrop-blur-sm flex items-center justify-center text-muted-foreground">
               <Eye className="h-6 w-6" />
             </div>
             <span className="text-xs font-medium text-muted-foreground">{memo.viewCount}</span>
@@ -362,7 +428,7 @@ export function StoryMemoCard({ memo, isActive, onSwipeUp, onSwipeDown }: StoryM
       </div>
 
       {/* Swipe Hint */}
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground/50">
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs text-muted-foreground/50 z-10">
         Swipe up for next
       </div>
     </motion.div>
