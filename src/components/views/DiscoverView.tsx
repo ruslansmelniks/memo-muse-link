@@ -38,10 +38,17 @@ export function DiscoverView() {
     searchQuery: debouncedSearch,
   });
 
-  // Combine demo memos with database memos
+  // Always include demo memos as supplementary content when db has few memos
   const memos = useMemo(() => {
-    if (dbMemos.length > 0) return dbMemos;
-    return DEMO_MEMOS;
+    // If we have enough real memos, show only those
+    if (dbMemos.length >= 5) return dbMemos;
+    
+    // Mix real memos with demo memos for richer feed
+    const existingIds = new Set(dbMemos.map(m => m.id));
+    const demosToAdd = DEMO_MEMOS.filter(d => !existingIds.has(d.id));
+    
+    // Interleave: real memos first, then demos
+    return [...dbMemos, ...demosToAdd.slice(0, 5 - dbMemos.length)];
   }, [dbMemos]);
 
   // Pull-to-refresh

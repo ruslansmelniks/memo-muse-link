@@ -1,10 +1,17 @@
-import { Heart, Eye, Headphones, Clock } from "lucide-react";
+import { Heart, Eye, Headphones, Bookmark, Play, Pause } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { DiscoverMemo } from "@/hooks/useDiscoverMemos";
+import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
+import { useBookmarks } from "@/hooks/useBookmarks";
+import { useLikes } from "@/hooks/useLikes";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import { motion } from "framer-motion";
+import { toast } from "sonner";
+import { useState } from "react";
 
 interface DiscoverFeedCardProps {
   memo: DiscoverMemo;
@@ -12,6 +19,15 @@ interface DiscoverFeedCardProps {
 }
 
 export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
+  const { user } = useAuth();
+  const { play, pause, isPlaying, isCurrentTrack } = useAudioPlayer();
+  const { isBookmarked, toggleBookmark, loading: bookmarkLoading } = useBookmarks();
+  const { isLiked, toggleLike } = useLikes();
+  const [likeCount, setLikeCount] = useState(memo.likes);
+
+  const isThisTrackPlaying = isCurrentTrack(memo.id) && isPlaying;
+  const isDemo = memo.id.startsWith("demo-");
+
   const formatTimeAgo = (date: Date) => {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
@@ -31,9 +47,57 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const isDemo = memo.id.startsWith("demo-");
   const memoLink = isDemo ? "#" : `/memo/${memo.id}`;
   const profileLink = isDemo || !memo.author.id ? "#" : `/profile/${memo.author.id}`;
+
+  const handlePlayToggle = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!memo.audioUrl) return;
+    
+    if (isThisTrackPlaying) {
+      pause();
+    } else {
+      play({
+        id: memo.id,
+        title: memo.title,
+        audioUrl: memo.audioUrl,
+        author: memo.author,
+        duration: memo.duration,
+      });
+    }
+  };
+
+  const handleLike = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!user) {
+      toast.error("Sign in to like memos");
+      return;
+    }
+    if (isDemo) return;
+    
+    const result = await toggleLike(memo.id, likeCount);
+    if (result.success) {
+      setLikeCount(result.newCount);
+    }
+  };
+
+  const handleBookmark = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (isDemo) {
+      toast.error("Demo memos cannot be saved");
+      return;
+    }
+    await toggleBookmark(memo.id);
+  };
+
+  const memoIsLiked = isLiked(memo.id);
+  const memoIsBookmarked = isBookmarked(memo.id);
 
   return (
     <Card className={cn("border-0 shadow-none bg-transparent", className)}>
@@ -72,9 +136,9 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
           {memo.summary || memo.transcript.slice(0, 200)}
         </p>
 
-        {/* Bottom Row: Categories + Metrics */}
+        {/* Bottom Row: Categories + Audio + Actions */}
         <div className="flex items-center justify-between gap-4">
-          {/* Left: Categories + Audio indicator */}
+          {/* Left: Categories + Audio player */}
           <div className="flex items-center gap-2 flex-wrap">
             {memo.categories.slice(0, 2).map((category) => (
               <Badge 
@@ -86,23 +150,57 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
               </Badge>
             ))}
             {memo.audioUrl && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Headphones className="h-3.5 w-3.5" />
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={handlePlayToggle}
+                className={cn(
+                  "flex items-center gap-1.5 text-xs px-2 py-1 rounded-full transition-colors",
+                  isThisTrackPlaying
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                {isThisTrackPlaying ? (
+                  <Pause className="h-3 w-3" />
+                ) : (
+                  <Play className="h-3 w-3" />
+                )}
                 <span>{formatDuration(memo.duration)}</span>
-              </div>
+              </motion.button>
             )}
           </div>
 
-          {/* Right: Engagement metrics */}
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <Heart className="h-3.5 w-3.5" />
-              <span>{memo.likes}</span>
-            </div>
+          {/* Right: Actions */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {/* Like */}
+            <button
+              onClick={handleLike}
+              className={cn(
+                "flex items-center gap-1 transition-colors hover:text-primary",
+                memoIsLiked && "text-primary"
+              )}
+            >
+              <Heart className={cn("h-3.5 w-3.5", memoIsLiked && "fill-current")} />
+              <span>{likeCount}</span>
+            </button>
+            
+            {/* Views */}
             <div className="flex items-center gap-1">
               <Eye className="h-3.5 w-3.5" />
               <span>{memo.viewCount}</span>
             </div>
+
+            {/* Bookmark */}
+            <button
+              onClick={handleBookmark}
+              disabled={bookmarkLoading}
+              className={cn(
+                "flex items-center transition-colors hover:text-primary",
+                memoIsBookmarked && "text-primary"
+              )}
+            >
+              <Bookmark className={cn("h-3.5 w-3.5", memoIsBookmarked && "fill-current")} />
+            </button>
           </div>
         </div>
       </CardContent>
