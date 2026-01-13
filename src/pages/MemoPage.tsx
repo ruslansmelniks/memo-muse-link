@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLikes } from "@/hooks/useLikes";
+import { useFollow } from "@/hooks/useFollow";
 import { Button } from "@/components/ui/button";
 import { AudioWaveform } from "@/components/AudioWaveform";
 import { 
@@ -15,7 +18,11 @@ import {
   Mail,
   MessageCircle,
   FileText,
-  X
+  X,
+  Heart,
+  Eye,
+  UserPlus,
+  UserMinus
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -34,6 +41,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
 
 interface Memo {
   id: string;
@@ -46,8 +54,10 @@ interface Memo {
   isPublic: boolean;
   createdAt: Date;
   duration: number;
-  author: { name: string; avatar?: string };
+  author: { id: string; name: string; avatar?: string };
   language: string | null;
+  likes: number;
+  viewCount: number;
 }
 
 const LANGUAGE_DISPLAY: Record<string, { flag: string; short: string }> = {
@@ -62,6 +72,9 @@ const LANGUAGE_DISPLAY: Record<string, { flag: string; short: string }> = {
 
 export default function MemoPage() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const { isLiked, toggleLike, setInitialLikeCount } = useLikes();
+  const { isFollowing, toggleFollow, loading: followLoading } = useFollow();
   const [memo, setMemo] = useState<Memo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +82,7 @@ export default function MemoPage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [showTranscriptDialog, setShowTranscriptDialog] = useState(false);
+  const [likeCount, setLikeCount] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -118,6 +132,11 @@ export default function MemoPage() {
         authorAvatar = profile?.avatar_url || undefined;
       }
 
+      // Increment view count for public memos
+      if (data.is_public) {
+        await supabase.rpc("increment_view_count", { memo_uuid: id });
+      }
+
       setMemo({
         id: data.id,
         title: data.title,
@@ -129,15 +148,19 @@ export default function MemoPage() {
         isPublic: data.is_public,
         createdAt: new Date(data.created_at),
         duration: data.duration,
-        author: { name: data.author_name, avatar: authorAvatar },
+        author: { id: data.user_id || "", name: data.author_name, avatar: authorAvatar },
         language: data.language,
+        likes: data.likes,
+        viewCount: data.view_count,
       });
+      setLikeCount(data.likes);
+      setInitialLikeCount(data.id, data.likes);
       setAudioDuration(data.duration);
       setLoading(false);
     }
 
     fetchMemo();
-  }, [id]);
+  }, [id, setInitialLikeCount]);
 
   const initAudio = useCallback(() => {
     if (!memo?.audioUrl || audioRef.current) return audioRef.current;
@@ -243,6 +266,35 @@ export default function MemoPage() {
       toast.error("Failed to copy transcript");
     }
   };
+
+  const handleLike = async () => {
+    if (!user) {
+      toast.error("Sign in to like memos");
+      return;
+    }
+    if (!memo) return;
+    const result = await toggleLike(memo.id, likeCount);
+    if (result.success) {
+      setLikeCount(result.newCount);
+    }
+  };
+
+  const handleFollow = async () => {
+    if (!user) {
+      toast.error("Sign in to follow creators");
+      return;
+    }
+    if (!memo?.author.id) return;
+    
+    const success = await toggleFollow(memo.author.id);
+    if (success) {
+      toast.success(isFollowing(memo.author.id) ? "Unfollowed" : "Following");
+    }
+  };
+
+  const isOwnMemo = user?.id === memo?.author.id;
+  const userIsFollowing = memo?.author.id ? isFollowing(memo.author.id) : false;
+  const memoIsLiked = memo ? isLiked(memo.id) : false;
 
   if (loading) {
     return (
@@ -363,11 +415,35 @@ export default function MemoPage() {
                 </div>
               </div>
             </div>
-            {memo.isPublic ? (
-              <Globe className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <Lock className="h-4 w-4 text-muted-foreground" />
-            )}
+            <div className="flex items-center gap-2">
+              {/* Follow Button */}
+              {memo.isPublic && !isOwnMemo && memo.author.id && (
+                <Button
+                  variant={userIsFollowing ? "outline" : "default"}
+                  size="sm"
+                  onClick={handleFollow}
+                  disabled={followLoading}
+                  className="h-8"
+                >
+                  {userIsFollowing ? (
+                    <>
+                      <UserMinus className="h-3.5 w-3.5 mr-1" />
+                      Following
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-3.5 w-3.5 mr-1" />
+                      Follow
+                    </>
+                  )}
+                </Button>
+              )}
+              {memo.isPublic ? (
+                <Globe className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <Lock className="h-4 w-4 text-muted-foreground" />
+              )}
+            </div>
           </div>
 
           {/* Title */}
@@ -447,6 +523,35 @@ export default function MemoPage() {
                     <span className="text-sm text-foreground">{task}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Engagement Footer */}
+          {memo.isPublic && (
+            <div className="flex items-center justify-between pt-4 mt-4 border-t border-border">
+              <div className="flex items-center gap-4">
+                {/* Like Button */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLike}
+                  className={cn(
+                    "text-muted-foreground hover:text-primary",
+                    memoIsLiked && "text-red-500 hover:text-red-600"
+                  )}
+                >
+                  <Heart
+                    className={cn("h-4 w-4 mr-1", memoIsLiked && "fill-current")}
+                  />
+                  {likeCount}
+                </Button>
+
+                {/* View Count */}
+                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                  <Eye className="h-4 w-4" />
+                  {memo.viewCount}
+                </div>
               </div>
             </div>
           )}

@@ -50,6 +50,56 @@ export type Database = {
         }
         Relationships: []
       }
+      follows: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      memo_likes: {
+        Row: {
+          created_at: string
+          id: string
+          memo_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          memo_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          memo_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memo_likes_memo_id_fkey"
+            columns: ["memo_id"]
+            isOneToOne: false
+            referencedRelation: "memos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memos: {
         Row: {
           audio_url: string | null
@@ -68,6 +118,7 @@ export type Database = {
           transcript: string
           updated_at: string
           user_id: string | null
+          view_count: number
           visibility_override: boolean | null
         }
         Insert: {
@@ -87,6 +138,7 @@ export type Database = {
           transcript: string
           updated_at?: string
           user_id?: string | null
+          view_count?: number
           visibility_override?: boolean | null
         }
         Update: {
@@ -106,6 +158,7 @@ export type Database = {
           transcript?: string
           updated_at?: string
           user_id?: string | null
+          view_count?: number
           visibility_override?: boolean | null
         }
         Relationships: [
@@ -153,7 +206,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_view_count: { Args: { memo_uuid: string }; Returns: undefined }
+      toggle_memo_like: {
+        Args: { p_memo_id: string; p_user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
