@@ -242,7 +242,10 @@ function ProfileMemoCard({ memo, index }: ProfileMemoCardProps) {
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(memo.duration);
   const [likeCount, setLikeCount] = useState(memo.likes);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const PLAYBACK_SPEEDS = [1, 1.2, 1.5, 2];
 
   useEffect(() => {
     setInitialLikeCount(memo.id, memo.likes);
@@ -285,6 +288,16 @@ function ProfileMemoCard({ memo, index }: ProfileMemoCardProps) {
       setIsPlaying(true);
     }
   }, [initAudio, isPlaying]);
+
+  const cyclePlaybackSpeed = () => {
+    const currentIndex = PLAYBACK_SPEEDS.indexOf(playbackSpeed);
+    const nextIndex = (currentIndex + 1) % PLAYBACK_SPEEDS.length;
+    const newSpeed = PLAYBACK_SPEEDS[nextIndex];
+    setPlaybackSpeed(newSpeed);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = newSpeed;
+    }
+  };
 
   const handleLike = async () => {
     if (!user) {
@@ -344,8 +357,16 @@ function ProfileMemoCard({ memo, index }: ProfileMemoCardProps) {
               />
             </div>
 
-            <div className="text-xs text-muted-foreground font-medium flex-shrink-0">
-              {formatDuration(currentTime)} / {formatDuration(audioDuration)}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={cyclePlaybackSpeed}
+                className="px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-md transition-colors min-w-[40px]"
+              >
+                {playbackSpeed}x
+              </button>
+              <div className="text-xs text-muted-foreground font-medium">
+                {formatDuration(currentTime)} / {formatDuration(audioDuration)}
+              </div>
             </div>
           </div>
         </div>
