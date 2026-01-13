@@ -226,10 +226,23 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
                   const isCurrentBar = Math.abs(barProgress - progress) < 2;
                   
                   return (
-                    <div
+                    <motion.div
                       key={i}
+                      animate={
+                        isThisTrackPlaying
+                          ? {
+                              scaleY: [1, 0.6 + Math.random() * 0.8, 1],
+                              transition: {
+                                duration: 0.4 + Math.random() * 0.3,
+                                repeat: Infinity,
+                                ease: "easeInOut",
+                                delay: i * 0.02,
+                              },
+                            }
+                          : { scaleY: 1 }
+                      }
                       className={cn(
-                        "flex-1 min-w-[2px] max-w-[4px] rounded-full transition-colors",
+                        "flex-1 min-w-[2px] max-w-[4px] rounded-full transition-colors origin-bottom",
                         isPlayed 
                           ? "bg-primary" 
                           : "bg-foreground/20 group-hover:bg-foreground/30",
