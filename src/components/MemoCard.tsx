@@ -178,7 +178,12 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
     // Always create fresh audio element if we don't have one
     if (!audioRef.current) {
       const audio = new Audio();
-      audio.preload = "metadata";
+      
+      // iOS Safari specific attributes for better playback support
+      audio.setAttribute('playsinline', 'true');
+      audio.setAttribute('webkit-playsinline', 'true');
+      audio.preload = "auto"; // Use auto instead of metadata for iOS
+      audio.crossOrigin = "anonymous"; // Allow cross-origin if needed
       audio.src = memo.audioUrl;
       
       audio.ontimeupdate = () => {
@@ -189,14 +194,25 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
           setAudioDuration(audio.duration);
         }
       };
+      audio.oncanplaythrough = () => {
+        // Audio is ready to play without buffering
+        console.log("Audio ready to play");
+      };
       audio.onended = () => {
         setIsPlaying(false);
         setCurrentTime(0);
       };
       audio.onerror = (e) => {
-        console.error("Audio error:", e);
+        console.error("Audio error:", e, audio.error);
         setIsPlaying(false);
       };
+      audio.onstalled = () => {
+        console.log("Audio stalled, attempting to reload");
+        audio.load();
+      };
+      
+      // Explicitly load the audio
+      audio.load();
       
       audioRef.current = audio;
     }
@@ -215,21 +231,54 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
       setIsPlaying(false);
     } else {
       try {
-        // Ensure audio is loaded before playing
-        if (audio.readyState < 2) {
-          audio.load();
+        // iOS Safari fix: Always ensure audio source is set and loaded
+        if (!audio.src || audio.src !== memo.audioUrl) {
+          audio.src = memo.audioUrl;
         }
+        
+        // Force load on iOS - required for reliable playback
+        if (audio.readyState < 3) {
+          audio.load();
+          // Wait for the audio to be ready to play
+          await new Promise<void>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              resolve(); // Proceed anyway after timeout
+            }, 3000);
+            
+            const handleCanPlay = () => {
+              clearTimeout(timeout);
+              audio.removeEventListener('canplaythrough', handleCanPlay);
+              audio.removeEventListener('error', handleError);
+              resolve();
+            };
+            
+            const handleError = (e: Event) => {
+              clearTimeout(timeout);
+              audio.removeEventListener('canplaythrough', handleCanPlay);
+              audio.removeEventListener('error', handleError);
+              reject(e);
+            };
+            
+            audio.addEventListener('canplaythrough', handleCanPlay, { once: true });
+            audio.addEventListener('error', handleError, { once: true });
+          });
+        }
+        
         await audio.play();
         setIsPlaying(true);
       } catch (error) {
         console.error("Playback error:", error);
-        // Try loading and playing again
+        // iOS may need a second attempt with fresh load
         try {
+          audio.currentTime = 0;
           audio.load();
+          await new Promise(resolve => setTimeout(resolve, 100));
           await audio.play();
           setIsPlaying(true);
         } catch (retryError) {
           console.error("Retry playback failed:", retryError);
+          // Show user-friendly error
+          toast.error("Unable to play audio. Please try again.");
         }
       }
     }

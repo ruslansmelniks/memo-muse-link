@@ -25,8 +25,32 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
   const analyserRef = useRef<AnalyserNode | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const animationRef = useRef<number | null>(null);
+  const mimeTypeRef = useRef<string>("audio/webm");
 
   const haptics = useHaptics();
+
+  // Get the best supported MIME type for the current browser
+  const getSupportedMimeType = (): string => {
+    // Priority order: prefer formats that work on iOS Safari
+    const types = [
+      'audio/mp4',           // iOS Safari preferred
+      'audio/aac',           // iOS Safari supported
+      'audio/webm;codecs=opus', // Chrome/Firefox preferred
+      'audio/webm',          // Generic WebM
+      'audio/ogg;codecs=opus', // Firefox fallback
+    ];
+    
+    for (const type of types) {
+      if (MediaRecorder.isTypeSupported(type)) {
+        mimeTypeRef.current = type;
+        return type;
+      }
+    }
+    
+    // Fallback - let browser decide
+    mimeTypeRef.current = "";
+    return "";
+  };
 
   useEffect(() => {
     return () => {
@@ -61,8 +85,13 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
       
-      // Set up audio recording
-      const mediaRecorder = new MediaRecorder(stream);
+      // Determine the best MIME type for the browser (iOS Safari prefers mp4/aac)
+      const mimeType = getSupportedMimeType();
+      console.log("Using MIME type:", mimeType);
+      
+      // Set up audio recording with compatible format
+      const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
       
@@ -102,7 +131,10 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
       const finalDuration = duration;
       
       mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        // Use the MIME type that was actually used for recording
+        const actualMimeType = mimeTypeRef.current || "audio/webm";
+        const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
+        console.log("Created audio blob:", audioBlob.type, audioBlob.size);
         
         // ElevenLabs will do the transcription - no browser speech recognition needed
         onRecordingComplete("", finalDuration, audioBlob, selectedLanguage);
