@@ -42,9 +42,10 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
   const [hasMore, setHasMore] = useState(true);
   const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [userCategories, setUserCategories] = useState<string[]>([]);
+  const [categoryWeights, setCategoryWeights] = useState<Map<string, number>>(new Map());
   const offsetRef = useRef(0);
 
-  // Load user's categories for "for-you" feed
+  // Load user's categories with frequency weights for enhanced "for-you" algorithm
   useEffect(() => {
     if (!user || feed !== "for-you") return;
 
@@ -56,10 +57,22 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
         .not("categories", "is", null);
 
       if (!error && data) {
-        // Extract unique categories from user's memos
-        const allCategories = data.flatMap((m) => m.categories || []);
-        const uniqueCategories = [...new Set(allCategories)];
-        setUserCategories(uniqueCategories);
+        // Count category frequency for weighted recommendations
+        const categoryCount = new Map<string, number>();
+        data.forEach((m) => {
+          (m.categories || []).forEach((cat: string) => {
+            categoryCount.set(cat, (categoryCount.get(cat) || 0) + 1);
+          });
+        });
+        
+        setCategoryWeights(categoryCount);
+        
+        // Sort by frequency and take top categories
+        const sortedCategories = [...categoryCount.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .map(([cat]) => cat);
+        
+        setUserCategories(sortedCategories);
       }
     }
 
