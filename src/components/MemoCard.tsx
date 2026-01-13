@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy, Pencil, Check, X, FolderInput, Folder as FolderIcon, Plus, Eye } from "lucide-react";
+import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy, Pencil, Check, X, FolderInput, Folder as FolderIcon, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ShareButton } from "@/components/ShareButton";
 import { AudioWaveform } from "@/components/AudioWaveform";
 import {
   DropdownMenu,
@@ -492,15 +493,23 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
 
         {/* Footer */}
         {memo.isPublic && (
-          <div className="flex items-center gap-4 pt-3 border-t border-border">
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
-              <Heart className="h-4 w-4 mr-1" />
-              {memo.likes}
-            </Button>
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
-              <MessageCircle className="h-4 w-4 mr-1" />
-              {memo.comments}
-            </Button>
+          <div className="flex items-center justify-between pt-3 border-t border-border">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
+                <Heart className="h-4 w-4 mr-1" />
+                {memo.likes}
+              </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
+                <MessageCircle className="h-4 w-4 mr-1" />
+                {memo.comments}
+              </Button>
+            </div>
+            <ShareButton 
+              memoId={memo.id} 
+              title={memo.title} 
+              summary={memo.summary} 
+              isPublic={memo.isPublic} 
+            />
           </div>
         )}
       </motion.div>
