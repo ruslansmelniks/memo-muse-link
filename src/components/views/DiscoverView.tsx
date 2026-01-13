@@ -36,13 +36,20 @@ export function DiscoverView() {
 
   // Combine demo memos with database memos for discovery
   const memos = useMemo(() => {
-    // If we have DB memos, show them first, then add demos at the end if needed
-    if (dbMemos.length > 0) {
-      return dbMemos;
-    }
+    // If we have DB memos, show them first
+    if (dbMemos.length > 0) return dbMemos;
+
     // If no DB memos, show demo memos
     return DEMO_MEMOS;
   }, [dbMemos]);
+
+  // Keep currentIndex in-bounds when memos list changes
+  useEffect(() => {
+    if (memos.length === 0) return;
+    if (currentIndex > memos.length - 1) {
+      setCurrentIndex(0);
+    }
+  }, [currentIndex, memos.length]);
 
   // Load more when approaching end
   useEffect(() => {
@@ -143,6 +150,7 @@ export function DiscoverView() {
   }, [memos, haptics]);
 
   const activeFilterCount = selectedCategories.length + (searchQuery ? 1 : 0);
+  const activeMemo = memos[currentIndex];
 
   return (
     <div
@@ -237,40 +245,38 @@ export function DiscoverView() {
       {/* Story Cards Container */}
       <div className="relative h-full">
         {/* Loading State */}
-        {loading && memos.length === 0 && (
+        {loading && !activeMemo && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-muted-foreground">Loading memos...</p>
           </div>
         )}
 
-        {/* Empty State - this shouldn't show now since we have demo memos */}
-        {!loading && memos.length === 0 && (
+        {/* Empty State */}
+        {!loading && !activeMemo && (
           <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
             <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
               <Compass className="h-10 w-10 text-muted-foreground" />
             </div>
-            <h3 className="font-display font-semibold text-xl mb-2">No memos found</h3>
-            <p className="text-muted-foreground mb-6">
-              {searchQuery 
-                ? "Try adjusting your search or filters" 
-                : activeFeed === "following" 
-                  ? "Follow some creators to see their memos here"
-                  : "Be the first to share a public memo!"
-              }
-            </p>
-            <Button onClick={() => setFilterSheetOpen(true)} variant="outline">
-              <SlidersHorizontal className="h-4 w-4 mr-2" />
-              Adjust Filters
-            </Button>
+            <h3 className="font-display font-semibold text-xl mb-2">Nothing to show</h3>
+            <p className="text-muted-foreground mb-6">Try adjusting your filters or refreshing.</p>
+            <div className="flex gap-3">
+              <Button onClick={() => setFilterSheetOpen(true)} variant="outline">
+                <SlidersHorizontal className="h-4 w-4 mr-2" />
+                Filters
+              </Button>
+              <Button onClick={() => refresh()} variant="outline">
+                Refresh
+              </Button>
+            </div>
           </div>
         )}
 
         {/* Story Cards */}
         <AnimatePresence mode="wait">
-          {memos.length > 0 && (
+          {activeMemo && (
             <motion.div
-              key={currentIndex}
+              key={activeMemo.id}
               initial={{ opacity: 0, y: 50 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -50 }}
@@ -278,7 +284,7 @@ export function DiscoverView() {
               className="absolute inset-0"
             >
               <StoryMemoCard
-                memo={memos[currentIndex]}
+                memo={activeMemo}
                 isActive={true}
                 onSwipeUp={handleSwipeUp}
                 onSwipeDown={handleSwipeDown}
