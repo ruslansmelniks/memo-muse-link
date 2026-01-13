@@ -25,7 +25,7 @@ const Index = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {/* Subtle decorative gradient blobs */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full gradient-hero opacity-10 blur-3xl" />
@@ -34,7 +34,7 @@ const Index = () => {
 
       <Header />
       
-      <main className="relative">
+      <main className="relative flex-1 h-[calc(100vh-8rem)]">
         {renderView()}
       </main>
       
