@@ -1,13 +1,18 @@
-import { useState, useCallback, useEffect } from "react";
-import { Compass, SlidersHorizontal, Shuffle, Loader2, ChevronUp } from "lucide-react";
+import { useState, useCallback, useEffect, useMemo } from "react";
+import { Compass, SlidersHorizontal, Shuffle, Loader2, ChevronUp, PlayCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useDiscoverMemos, DiscoverFeed, fetchRandomMemo, DiscoverMemo } from "@/hooks/useDiscoverMemos";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
+import { useAutoPlay } from "@/hooks/useAutoPlay";
+import { useHaptics } from "@/hooks/useHaptics";
 import { PullToRefreshIndicator } from "@/components/PullToRefresh";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { StoryMemoCard } from "@/components/StoryMemoCard";
 import { DiscoverFilterSheet } from "@/components/DiscoverFilterSheet";
+import { DEMO_MEMOS, getRandomDemoMemo } from "@/data/demoMemos";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -20,26 +25,39 @@ export function DiscoverView() {
   const [loadingRandom, setLoadingRandom] = useState(false);
   
   const debouncedSearch = useDebounce(searchQuery, 300);
+  const { autoPlayEnabled, toggleAutoPlay } = useAutoPlay();
+  const haptics = useHaptics();
 
-  const { memos, loading, hasMore, loadMore, refresh } = useDiscoverMemos({
+  const { memos: dbMemos, loading, hasMore, loadMore, refresh } = useDiscoverMemos({
     feed: activeFeed,
     categories: selectedCategories,
     searchQuery: debouncedSearch,
   });
 
+  // Combine demo memos with database memos for discovery
+  const memos = useMemo(() => {
+    // If we have DB memos, show them first, then add demos at the end if needed
+    if (dbMemos.length > 0) {
+      return dbMemos;
+    }
+    // If no DB memos, show demo memos
+    return DEMO_MEMOS;
+  }, [dbMemos]);
+
   // Load more when approaching end
   useEffect(() => {
-    if (currentIndex >= memos.length - 2 && hasMore && !loading) {
+    if (currentIndex >= memos.length - 2 && hasMore && !loading && dbMemos.length > 0) {
       loadMore();
     }
-  }, [currentIndex, memos.length, hasMore, loading, loadMore]);
+  }, [currentIndex, memos.length, hasMore, loading, loadMore, dbMemos.length]);
 
   // Pull-to-refresh
   const handleRefresh = useCallback(async () => {
     setCurrentIndex(0);
     await refresh();
+    haptics.notification("success");
     toast.success("Feed refreshed");
-  }, [refresh]);
+  }, [refresh, haptics]);
 
   const {
     containerRef,
@@ -54,11 +72,12 @@ export function DiscoverView() {
   });
 
   const handleApplyFilters = useCallback((feed: DiscoverFeed, categories: string[], search: string) => {
+    haptics.impact("light");
     setActiveFeed(feed);
     setSelectedCategories(categories);
     setSearchQuery(search);
     setCurrentIndex(0);
-  }, []);
+  }, [haptics]);
 
   const handleSwipeUp = useCallback(() => {
     if (currentIndex < memos.length - 1) {
@@ -72,31 +91,56 @@ export function DiscoverView() {
     }
   }, [currentIndex]);
 
+  // Auto-play next when current audio ends
+  const handleAudioEnded = useCallback(() => {
+    if (autoPlayEnabled && currentIndex < memos.length - 1) {
+      haptics.impact("light");
+      setCurrentIndex(prev => prev + 1);
+    }
+  }, [autoPlayEnabled, currentIndex, memos.length, haptics]);
+
   const handleRandomPlay = useCallback(async () => {
     setLoadingRandom(true);
+    haptics.impact("medium");
+    
     try {
+      // First try to get a random memo from the database
       const randomMemo = await fetchRandomMemo();
+      
       if (randomMemo) {
         // Find if this memo exists in current list
         const existingIndex = memos.findIndex(m => m.id === randomMemo.id);
         if (existingIndex !== -1) {
           setCurrentIndex(existingIndex);
+          haptics.notification("success");
         } else {
-          // Add to beginning and go there
-          // For now, just refresh with the random memo shown
           toast.success(`Playing: ${randomMemo.title}`);
-          // Navigate to the memo page for full experience
           window.location.href = `/memo/${randomMemo.id}`;
         }
       } else {
-        toast.error("No memos found");
+        // Fall back to demo memos
+        const randomDemo = getRandomDemoMemo();
+        const demoIndex = memos.findIndex(m => m.id === randomDemo.id);
+        if (demoIndex !== -1) {
+          setCurrentIndex(demoIndex);
+          haptics.notification("success");
+          toast.success(`Playing: ${randomDemo.title}`);
+        } else {
+          // If demo memos aren't in the list, just pick a random index
+          const randomIndex = Math.floor(Math.random() * memos.length);
+          setCurrentIndex(randomIndex);
+          haptics.notification("success");
+        }
       }
     } catch {
-      toast.error("Failed to load random memo");
+      // Fall back to random from current list
+      const randomIndex = Math.floor(Math.random() * memos.length);
+      setCurrentIndex(randomIndex);
+      haptics.notification("success");
     } finally {
       setLoadingRandom(false);
     }
-  }, [memos]);
+  }, [memos, haptics]);
 
   const activeFilterCount = selectedCategories.length + (searchQuery ? 1 : 0);
 
@@ -129,6 +173,26 @@ export function DiscoverView() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Auto-play Toggle */}
+            <div className="flex items-center gap-2 mr-2">
+              <Switch
+                id="autoplay"
+                checked={autoPlayEnabled}
+                onCheckedChange={() => {
+                  haptics.selection();
+                  toggleAutoPlay();
+                }}
+                className="data-[state=checked]:bg-primary"
+              />
+              <Label 
+                htmlFor="autoplay" 
+                className="text-xs text-muted-foreground cursor-pointer flex items-center gap-1"
+              >
+                <PlayCircle className="h-3 w-3" />
+                Auto
+              </Label>
+            </div>
+
             {/* Random Play Button */}
             <Button
               variant="ghost"
@@ -148,7 +212,10 @@ export function DiscoverView() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setFilterSheetOpen(true)}
+              onClick={() => {
+                haptics.selection();
+                setFilterSheetOpen(true);
+              }}
               className={cn(
                 "h-10 w-10 rounded-xl relative",
                 activeFilterCount > 0 
@@ -177,7 +244,7 @@ export function DiscoverView() {
           </div>
         )}
 
-        {/* Empty State */}
+        {/* Empty State - this shouldn't show now since we have demo memos */}
         {!loading && memos.length === 0 && (
           <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
             <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -215,6 +282,8 @@ export function DiscoverView() {
                 isActive={true}
                 onSwipeUp={handleSwipeUp}
                 onSwipeDown={handleSwipeDown}
+                onAudioEnded={handleAudioEnded}
+                autoPlayEnabled={autoPlayEnabled}
               />
             </motion.div>
           )}
