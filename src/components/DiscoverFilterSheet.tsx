@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const FEEDS: { id: DiscoverFeed; label: string; icon: React.ElementType; description: string }[] = [
+  { id: "for-you", label: "For You", icon: TrendingUp, description: "Personalized for your interests" },
   { id: "trending", label: "Trending", icon: TrendingUp, description: "Most popular memos" },
   { id: "recent", label: "Recent", icon: Clock, description: "Latest shared memos" },
   { id: "following", label: "Following", icon: Users, description: "From people you follow" },
