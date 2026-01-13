@@ -1,12 +1,14 @@
-import { Heart, Eye, Bookmark, Play, Pause, ListPlus, Check } from "lucide-react";
+import { Heart, Eye, Bookmark, Play, Pause, ListPlus, Check, UserPlus, UserCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { DiscoverMemo } from "@/hooks/useDiscoverMemos";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import { useBookmarks } from "@/hooks/useBookmarks";
 import { useLikes } from "@/hooks/useLikes";
+import { useFollow } from "@/hooks/useFollow";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -42,6 +44,7 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
   const { play, pause, isPlaying, isCurrentTrack, currentTime, duration, seek, addToQueue, isInQueue } = useAudioPlayer();
   const { isBookmarked, toggleBookmark, loading: bookmarkLoading } = useBookmarks();
   const { isLiked, toggleLike } = useLikes();
+  const { isFollowing, toggleFollow, loading: followLoading } = useFollow();
   const [likeCount, setLikeCount] = useState(memo.likes);
   const waveformRef = useRef<HTMLDivElement>(null);
 
@@ -154,30 +157,77 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
 
   const memoIsLiked = isLiked(memo.id);
   const memoIsBookmarked = isBookmarked(memo.id);
+  const authorIsFollowed = memo.author.id ? isFollowing(memo.author.id) : false;
+  const isOwnMemo = user?.id === memo.author.id;
+
+  const handleFollow = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!user) {
+      toast.error("Sign in to follow users");
+      return;
+    }
+    
+    if (!memo.author.id || isDemo || isOwnMemo) return;
+    
+    const success = await toggleFollow(memo.author.id);
+    if (success) {
+      toast.success(authorIsFollowed ? "Unfollowed" : "Following");
+    }
+  };
 
   return (
     <Card className={cn("border-0 shadow-none bg-transparent", className)}>
       <CardContent className="p-0">
         {/* Author Row */}
-        <div className="flex items-center gap-3 mb-3">
-          <Link to={profileLink}>
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={memo.author.avatar} alt={memo.author.name} />
-              <AvatarFallback className="bg-muted text-muted-foreground text-xs">
-                {memo.author.name.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-          </Link>
-          <div className="flex items-center gap-2 text-sm">
-            <Link 
-              to={profileLink}
-              className="font-medium text-foreground hover:text-primary transition-colors"
-            >
-              {memo.author.name}
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link to={profileLink}>
+              <Avatar className="h-8 w-8 flex-shrink-0">
+                <AvatarImage src={memo.author.avatar} alt={memo.author.name} />
+                <AvatarFallback className="bg-muted text-muted-foreground text-xs">
+                  {memo.author.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
             </Link>
-            <span className="text-muted-foreground">·</span>
-            <span className="text-muted-foreground">{formatTimeAgo(memo.createdAt)}</span>
+            <div className="flex items-center gap-2 text-sm min-w-0">
+              <Link 
+                to={profileLink}
+                className="font-medium text-foreground hover:text-primary transition-colors truncate"
+              >
+                {memo.author.name}
+              </Link>
+              <span className="text-muted-foreground flex-shrink-0">·</span>
+              <span className="text-muted-foreground flex-shrink-0">{formatTimeAgo(memo.createdAt)}</span>
+            </div>
           </div>
+          
+          {/* Follow Button */}
+          {memo.author.id && !isOwnMemo && !isDemo && (
+            <Button
+              variant={authorIsFollowed ? "outline" : "default"}
+              size="sm"
+              onClick={handleFollow}
+              disabled={followLoading}
+              className={cn(
+                "h-7 px-3 text-xs font-medium flex-shrink-0",
+                authorIsFollowed && "border-primary/30 text-primary hover:bg-primary/10"
+              )}
+            >
+              {authorIsFollowed ? (
+                <>
+                  <UserCheck className="h-3 w-3 mr-1" />
+                  Following
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-3 w-3 mr-1" />
+                  Follow
+                </>
+              )}
+            </Button>
+          )}
         </div>
 
         {/* Title */}
