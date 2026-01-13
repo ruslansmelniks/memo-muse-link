@@ -243,9 +243,17 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
       {/* Header */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-foreground font-medium text-sm">
-              {memo.author.name.charAt(0)}
-            </div>
+            {memo.author.avatar ? (
+              <img 
+                src={memo.author.avatar} 
+                alt={memo.author.name}
+                className="w-10 h-10 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-foreground font-medium text-sm">
+                {memo.author.name.charAt(0).toUpperCase()}
+              </div>
+            )}
             <div>
               <p className="font-medium text-foreground">{memo.author.name}</p>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
