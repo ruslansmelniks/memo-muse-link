@@ -34,8 +34,10 @@ const Index = () => {
 
       <Header />
       
-      <main className="relative flex-1 h-[calc(100vh-8rem)]">
-        {renderView()}
+      <main className="relative flex-1 min-h-0 overflow-hidden">
+        <div className="h-full">
+          {renderView()}
+        </div>
       </main>
       
       <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
