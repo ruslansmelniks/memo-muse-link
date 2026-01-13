@@ -46,15 +46,28 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [queue, setQueue] = useState<AudioTrack[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Initialize audio element
+  // Initialize audio element with iOS Safari compatibility
   useEffect(() => {
     const audio = new Audio();
-    audio.preload = "metadata";
+    
+    // iOS Safari specific attributes
+    audio.setAttribute('playsinline', 'true');
+    audio.setAttribute('webkit-playsinline', 'true');
+    audio.preload = "auto";
     
     audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
-    audio.onloadedmetadata = () => setDuration(audio.duration);
+    audio.onloadedmetadata = () => {
+      if (audio.duration && !isNaN(audio.duration)) {
+        setDuration(audio.duration);
+      }
+    };
     audio.onpause = () => setIsPlaying(false);
     audio.onplay = () => setIsPlaying(true);
+    audio.onerror = (e) => console.error("Audio error:", e);
+    audio.onstalled = () => {
+      console.log("Audio stalled, reloading...");
+      audio.load();
+    };
     
     audioRef.current = audio;
     
@@ -90,21 +103,44 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     };
   }, [queue, playbackSpeed]);
 
-  const play = useCallback((track: AudioTrack) => {
+  const play = useCallback(async (track: AudioTrack) => {
     const audio = audioRef.current;
     if (!audio) return;
 
     // If same track, just resume
     if (currentTrack?.id === track.id && audio.src) {
-      audio.play();
+      try {
+        await audio.play();
+      } catch (error) {
+        console.error("Resume playback error:", error);
+        // iOS fix: reload and try again
+        audio.load();
+        await audio.play().catch(console.error);
+      }
       return;
     }
 
-    // Load new track
+    // Load new track with iOS compatibility
     setCurrentTrack(track);
     audio.src = track.audioUrl;
     audio.playbackRate = playbackSpeed;
-    audio.play().catch(console.error);
+    
+    // Explicitly load before playing (required for iOS Safari)
+    audio.load();
+    
+    try {
+      await audio.play();
+    } catch (error) {
+      console.error("Playback error:", error);
+      // Retry once after a short delay (iOS workaround)
+      setTimeout(async () => {
+        try {
+          await audio.play();
+        } catch (retryError) {
+          console.error("Retry playback failed:", retryError);
+        }
+      }, 100);
+    }
   }, [currentTrack, playbackSpeed]);
 
   const pause = useCallback(() => {
