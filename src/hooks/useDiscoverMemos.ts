@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserPreferences } from "./useUserPreferences";
 
 export type DiscoverFeed = "for-you" | "trending" | "recent" | "following";
 
@@ -32,52 +33,60 @@ interface UseDiscoverMemosOptions {
   pageSize?: number;
 }
 
+// Score a memo based on user preferences
+function calculateMemoScore(
+  memo: DiscoverMemo,
+  followingIds: Set<string>,
+  categoryWeights: Map<string, number>,
+  topCategories: string[]
+): number {
+  let score = 0;
+  
+  // Following bonus (highest priority) - +100 points
+  if (followingIds.has(memo.author.id)) {
+    score += 100;
+  }
+  
+  // Category match bonus (based on weighted preferences)
+  memo.categories.forEach((cat) => {
+    const weight = categoryWeights.get(cat) || 0;
+    score += weight * 10; // Multiply by 10 for significance
+  });
+  
+  // Top category match bonus (extra points for top 3 categories)
+  const topThree = topCategories.slice(0, 3);
+  memo.categories.forEach((cat) => {
+    if (topThree.includes(cat)) {
+      score += 25;
+    }
+  });
+  
+  // Engagement bonus (normalized)
+  score += Math.min(memo.likes * 2, 50); // Cap at 50 points
+  score += Math.min(memo.viewCount * 0.1, 20); // Cap at 20 points
+  
+  // Recency bonus (memos from last 24h get bonus)
+  const hoursSinceCreation = (Date.now() - memo.createdAt.getTime()) / (1000 * 60 * 60);
+  if (hoursSinceCreation < 24) {
+    score += 30 * (1 - hoursSinceCreation / 24); // Up to 30 points, decaying
+  } else if (hoursSinceCreation < 72) {
+    score += 15 * (1 - (hoursSinceCreation - 24) / 48); // Up to 15 points for 24-72h
+  }
+  
+  return score;
+}
+
 export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
   const { feed, categories = [], searchQuery, pageSize = 20 } = options;
   const { user } = useAuth();
+  const { followingIds, categoryWeights, topCategories, isLoaded: preferencesLoaded } = useUserPreferences();
   const [memos, setMemos] = useState<DiscoverMemo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const [followingIds, setFollowingIds] = useState<string[]>([]);
-  const [userCategories, setUserCategories] = useState<string[]>([]);
-  const [categoryWeights, setCategoryWeights] = useState<Map<string, number>>(new Map());
+  const [followingIdsForFeed, setFollowingIdsForFeed] = useState<string[]>([]);
   const offsetRef = useRef(0);
-
-  // Load user's categories with frequency weights for enhanced "for-you" algorithm
-  useEffect(() => {
-    if (!user || feed !== "for-you") return;
-
-    async function loadUserCategories() {
-      const { data, error } = await supabase
-        .from("memos")
-        .select("categories")
-        .eq("user_id", user.id)
-        .not("categories", "is", null);
-
-      if (!error && data) {
-        // Count category frequency for weighted recommendations
-        const categoryCount = new Map<string, number>();
-        data.forEach((m) => {
-          (m.categories || []).forEach((cat: string) => {
-            categoryCount.set(cat, (categoryCount.get(cat) || 0) + 1);
-          });
-        });
-        
-        setCategoryWeights(categoryCount);
-        
-        // Sort by frequency and take top categories
-        const sortedCategories = [...categoryCount.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .map(([cat]) => cat);
-        
-        setUserCategories(sortedCategories);
-      }
-    }
-
-    loadUserCategories();
-  }, [user, feed]);
 
   // Load following list for the "following" feed
   useEffect(() => {
@@ -90,7 +99,7 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
         .eq("follower_id", user.id);
 
       if (!error && data) {
-        setFollowingIds(data.map((f) => f.following_id));
+        setFollowingIdsForFeed(data.map((f) => f.following_id));
       }
     }
 
@@ -107,6 +116,9 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
       setError(null);
 
       try {
+        // For "for-you" feed, we fetch more and score client-side
+        const fetchSize = feed === "for-you" ? Math.max(pageSize * 3, 60) : pageSize;
+        
         let query = supabase
           .from("memos")
           .select(
@@ -128,32 +140,29 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
             language
           `
           )
-          .eq("is_public", true)
-          .range(offset, offset + pageSize - 1);
+          .eq("is_public", true);
 
         // Apply feed-specific filtering and ordering
         if (feed === "for-you") {
-          // For logged-in users with categories, match their interests
-          if (userCategories.length > 0 && user) {
-            query = query
-              .overlaps("categories", userCategories)
-              .neq("user_id", user.id) // Exclude own memos
-              .order("likes", { ascending: false })
-              .order("created_at", { ascending: false });
-          } else {
-            // Fallback to trending for users without categories
-            query = query
-              .order("likes", { ascending: false })
-              .order("created_at", { ascending: false });
+          // Fetch a broader set for scoring
+          if (user) {
+            query = query.neq("user_id", user.id); // Exclude own memos
           }
+          // Get recent memos with some engagement for better scoring pool
+          query = query
+            .order("created_at", { ascending: false })
+            .limit(fetchSize);
         } else if (feed === "trending") {
           query = query
             .order("likes", { ascending: false })
-            .order("created_at", { ascending: false });
+            .order("created_at", { ascending: false })
+            .range(offset, offset + pageSize - 1);
         } else if (feed === "recent") {
-          query = query.order("created_at", { ascending: false });
+          query = query
+            .order("created_at", { ascending: false })
+            .range(offset, offset + pageSize - 1);
         } else if (feed === "following") {
-          if (followingIds.length === 0) {
+          if (followingIdsForFeed.length === 0) {
             setMemos([]);
             setLoading(false);
             setLoadingMore(false);
@@ -161,8 +170,9 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
             return;
           }
           query = query
-            .in("user_id", followingIds)
-            .order("created_at", { ascending: false });
+            .in("user_id", followingIdsForFeed)
+            .order("created_at", { ascending: false })
+            .range(offset, offset + pageSize - 1);
         }
 
         // Apply additional category filter (supports multiple categories with OR logic)
@@ -204,7 +214,7 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
           ]) || []
         );
 
-        const mappedMemos: DiscoverMemo[] = data.map((m) => ({
+        let mappedMemos: DiscoverMemo[] = data.map((m) => ({
           id: m.id,
           title: m.title,
           audioUrl: m.audio_url,
@@ -226,6 +236,26 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
           language: m.language,
         }));
 
+        // For "for-you" feed, score and sort memos
+        if (feed === "for-you" && preferencesLoaded) {
+          // Score each memo
+          const scoredMemos = mappedMemos.map((memo) => ({
+            memo,
+            score: calculateMemoScore(memo, followingIds, categoryWeights, topCategories),
+          }));
+          
+          // Sort by score descending
+          scoredMemos.sort((a, b) => b.score - a.score);
+          
+          // Take the page slice
+          const start = offset;
+          const end = offset + pageSize;
+          mappedMemos = scoredMemos.slice(start, end).map((s) => s.memo);
+          
+          // Check if we have more
+          setHasMore(scoredMemos.length > end);
+        }
+
         if (isLoadMore) {
           setMemos((prev) => [...prev, ...mappedMemos]);
         } else {
@@ -239,7 +269,7 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
         setLoadingMore(false);
       }
     },
-    [feed, categories, searchQuery, pageSize, followingIds, userCategories, user]
+    [feed, categories, searchQuery, pageSize, followingIdsForFeed, followingIds, categoryWeights, topCategories, preferencesLoaded, user]
   );
 
   // Reset and load when filters change
