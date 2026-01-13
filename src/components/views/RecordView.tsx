@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
 import { LogIn } from "lucide-react";
 import { Folder } from "@/types/folder";
 
@@ -22,7 +23,7 @@ interface Memo {
   isPublic: boolean;
   createdAt: Date;
   duration: number;
-  author: { name: string };
+  author: { name: string; avatar?: string };
   likes: number;
   comments: number;
   language?: string | null;
@@ -44,6 +45,7 @@ export function RecordView() {
   const [isSavingFolder, setIsSavingFolder] = useState(false);
   
   const { user } = useAuth();
+  const { getDisplayName, getAvatarUrl } = useProfile();
 
   useEffect(() => {
     if (user) {
@@ -80,7 +82,7 @@ export function RecordView() {
         isPublic: m.is_public,
         createdAt: new Date(m.created_at),
         duration: m.duration,
-        author: { name: "You" },
+        author: { name: getDisplayName(), avatar: getAvatarUrl() || undefined },
         likes: m.likes,
         comments: 0,
         language: m.language,
@@ -234,7 +236,7 @@ export function RecordView() {
           is_public: data.isPublic,
           audio_url: audioUrl,
           duration: currentDuration,
-          author_name: user.email?.split("@")[0] || "User",
+          author_name: getDisplayName(),
           language: result.language || detectedLanguage,
           folder_id: data.folderId || null,
         })
@@ -256,7 +258,7 @@ export function RecordView() {
         isPublic: savedMemo.is_public,
         createdAt: new Date(savedMemo.created_at),
         duration: savedMemo.duration,
-        author: { name: "You" },
+        author: { name: getDisplayName(), avatar: getAvatarUrl() || undefined },
         likes: savedMemo.likes,
         comments: 0,
         language: savedMemo.language,

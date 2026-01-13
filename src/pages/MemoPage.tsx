@@ -46,7 +46,7 @@ interface Memo {
   isPublic: boolean;
   createdAt: Date;
   duration: number;
-  author: { name: string };
+  author: { name: string; avatar?: string };
   language: string | null;
 }
 
@@ -107,6 +107,17 @@ export default function MemoPage() {
         }
       }
 
+      // Fetch profile for avatar
+      let authorAvatar: string | undefined;
+      if (data.user_id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("avatar_url")
+          .eq("user_id", data.user_id)
+          .maybeSingle();
+        authorAvatar = profile?.avatar_url || undefined;
+      }
+
       setMemo({
         id: data.id,
         title: data.title,
@@ -118,7 +129,7 @@ export default function MemoPage() {
         isPublic: data.is_public,
         createdAt: new Date(data.created_at),
         duration: data.duration,
-        author: { name: data.author_name },
+        author: { name: data.author_name, avatar: authorAvatar },
         language: data.language,
       });
       setAudioDuration(data.duration);
@@ -325,9 +336,17 @@ export default function MemoPage() {
           {/* Author & Meta */}
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-foreground font-medium text-sm">
-                {memo.author.name.charAt(0)}
-              </div>
+              {memo.author.avatar ? (
+                <img 
+                  src={memo.author.avatar} 
+                  alt={memo.author.name}
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-foreground font-medium text-sm">
+                  {memo.author.name.charAt(0).toUpperCase()}
+                </div>
+              )}
               <div>
                 <p className="font-medium text-foreground">{memo.author.name}</p>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">

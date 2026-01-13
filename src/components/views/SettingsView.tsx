@@ -2,35 +2,25 @@ import { useState, useEffect } from "react";
 import { User, Bell, Shield, Mic, Palette, HelpCircle, LogOut, Languages } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { LanguageSelector, SUPPORTED_LANGUAGES } from "@/components/LanguageSelector";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { ProfileEditor } from "@/components/ProfileEditor";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export function SettingsView() {
   const { user, signOut } = useAuth();
+  const { profile, updateProfile, getDisplayName, getAvatarUrl } = useProfile();
   const [preferredLanguage, setPreferredLanguage] = useState("auto");
   const [isLoading, setIsLoading] = useState(false);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      loadUserPreferences();
+    if (profile?.preferred_language) {
+      setPreferredLanguage(profile.preferred_language);
     }
-  }, [user]);
-
-  const loadUserPreferences = async () => {
-    if (!user) return;
-    
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("preferred_language")
-      .eq("user_id", user.id)
-      .single();
-
-    if (data?.preferred_language) {
-      setPreferredLanguage(data.preferred_language);
-    }
-  };
+  }, [profile]);
 
   const handleLanguageChange = async (code: string) => {
     if (!user) {
@@ -62,9 +52,9 @@ export function SettingsView() {
     toast.success("Signed out successfully");
   };
 
-  const userInitial = user?.email?.[0]?.toUpperCase() || "?";
+  const displayName = getDisplayName();
+  const avatarUrl = getAvatarUrl();
   const userEmail = user?.email || "Not signed in";
-  const userName = user?.email?.split("@")[0] || "Guest";
 
   const settingsSections = [
     {
@@ -105,14 +95,24 @@ export function SettingsView() {
       {/* Profile Card */}
       <div className="glass-card rounded-2xl p-5 mb-8 animate-fade-in" style={{ animationDelay: "100ms" }}>
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center text-2xl font-bold text-primary-foreground">
-            {userInitial}
-          </div>
+          {avatarUrl ? (
+            <img 
+              src={avatarUrl} 
+              alt={displayName}
+              className="w-16 h-16 rounded-2xl object-cover"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center text-2xl font-bold text-primary-foreground">
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div className="flex-1">
-            <h3 className="font-display font-semibold text-lg text-foreground">{userName}</h3>
+            <h3 className="font-display font-semibold text-lg text-foreground">{displayName}</h3>
             <p className="text-sm text-muted-foreground">{userEmail}</p>
           </div>
-          <Button variant="soft" size="sm">Edit</Button>
+          <Button variant="soft" size="sm" onClick={() => setShowProfileEditor(true)}>
+            Edit
+          </Button>
         </div>
       </div>
 
@@ -186,6 +186,22 @@ export function SettingsView() {
             Sign Out
           </Button>
         </div>
+      )}
+
+      {/* Profile Editor Modal */}
+      {user && (
+        <ProfileEditor
+          isOpen={showProfileEditor}
+          onClose={() => setShowProfileEditor(false)}
+          userId={user.id}
+          currentProfile={{
+            display_name: profile?.display_name || null,
+            avatar_url: profile?.avatar_url || null,
+          }}
+          onProfileUpdate={(updated) => {
+            updateProfile(updated);
+          }}
+        />
       )}
     </div>
   );

@@ -11,6 +11,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useDebounce } from "@/hooks/useDebounce";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProfile } from "@/hooks/useProfile";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Folder } from "@/types/folder";
@@ -34,7 +35,7 @@ interface Memo {
   isPublic: boolean;
   createdAt: Date;
   duration: number;
-  author: { name: string };
+  author: { name: string; avatar?: string };
   likes: number;
   comments: number;
   folderId?: string | null;
@@ -57,6 +58,7 @@ export function LibraryView() {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const { user } = useAuth();
+  const { getDisplayName, getAvatarUrl } = useProfile();
   const isMobile = useIsMobile();
 
   const handleRefresh = useCallback(async () => {
@@ -105,7 +107,7 @@ export function LibraryView() {
         isPublic: m.is_public,
         createdAt: new Date(m.created_at),
         duration: m.duration,
-        author: { name: "You" },
+        author: { name: getDisplayName(), avatar: getAvatarUrl() || undefined },
         likes: m.likes,
         comments: 0,
         folderId: m.folder_id,
