@@ -213,14 +213,7 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
           {formatTime(duration)}
         </div>
 
-        {/* Live Transcript Preview */}
-        {isRecording && displayTranscript && (
-          <div className="w-full max-h-24 overflow-y-auto">
-            <p className="text-sm text-muted-foreground text-center italic">
-              "{displayTranscript}"
-            </p>
-          </div>
-        )}
+        {/* Live Transcript Preview - Removed for less distraction */}
 
         {/* Controls */}
         <div className="flex items-center gap-6 pt-2">
