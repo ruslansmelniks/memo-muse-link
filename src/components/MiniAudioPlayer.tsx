@@ -2,8 +2,8 @@ import { Play, Pause, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
+import { useRef, useCallback } from "react";
 
 export function MiniAudioPlayer() {
   const {
@@ -16,7 +16,10 @@ export function MiniAudioPlayer() {
     resume,
     stop,
     cycleSpeed,
+    seek,
   } = useAudioPlayer();
+
+  const seekBarRef = useRef<HTMLDivElement>(null);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -25,6 +28,17 @@ export function MiniAudioPlayer() {
   };
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  const handleSeek = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!seekBarRef.current || !duration) return;
+      const rect = seekBarRef.current.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const percentage = Math.max(0, Math.min(1, clickX / rect.width));
+      seek(percentage * duration);
+    },
+    [duration, seek]
+  );
 
   return (
     <AnimatePresence>
@@ -37,11 +51,23 @@ export function MiniAudioPlayer() {
           className="fixed bottom-16 left-0 right-0 z-40 px-2"
         >
           <div className="bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-lg overflow-hidden max-w-lg mx-auto">
-            {/* Progress bar at top */}
-            <Progress 
-              value={progress} 
-              className="h-1 rounded-none bg-muted/50"
-            />
+            {/* Seekable progress bar at top */}
+            <div
+              ref={seekBarRef}
+              onClick={handleSeek}
+              className="h-1.5 bg-muted/50 cursor-pointer group relative"
+            >
+              <motion.div
+                className="absolute inset-y-0 left-0 bg-primary"
+                style={{ width: `${progress}%` }}
+                transition={{ duration: 0.1 }}
+              />
+              {/* Seek handle */}
+              <motion.div
+                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                style={{ left: `calc(${progress}% - 6px)` }}
+              />
+            </div>
             
             <div className="flex items-center gap-3 p-3">
               {/* Avatar */}
