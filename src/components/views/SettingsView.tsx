@@ -6,12 +6,14 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { ProfileEditor } from "@/components/ProfileEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export function SettingsView() {
   const { user, signOut } = useAuth();
   const { profile, updateProfile, getDisplayName, getAvatarUrl } = useProfile();
+  const { isSupported, isSubscribed, permission, loading: pushLoading, subscribe, unsubscribe } = usePushNotifications();
   const [preferredLanguage, setPreferredLanguage] = useState("auto");
   const [isLoading, setIsLoading] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
@@ -47,6 +49,24 @@ export function SettingsView() {
     }
   };
 
+  const handlePushToggle = async (enabled: boolean) => {
+    if (enabled) {
+      const success = await subscribe();
+      if (success) {
+        toast.success("Push notifications enabled");
+      } else if (permission === "denied") {
+        toast.error("Please enable notifications in your browser settings");
+      } else {
+        toast.error("Failed to enable push notifications");
+      }
+    } else {
+      const success = await unsubscribe();
+      if (success) {
+        toast.success("Push notifications disabled");
+      }
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     toast.success("Signed out successfully");
@@ -61,7 +81,6 @@ export function SettingsView() {
       title: "Account",
       items: [
         { icon: User, label: "Profile", description: "Manage your account details" },
-        { icon: Bell, label: "Notifications", description: "Configure alerts and reminders", hasToggle: true },
         { icon: Shield, label: "Privacy", description: "Control who can see your memos" },
       ],
     },
@@ -139,6 +158,35 @@ export function SettingsView() {
         </div>
       </div>
 
+      {/* Push Notifications */}
+      {user && isSupported && (
+        <div className="animate-fade-in mb-8" style={{ animationDelay: "130ms" }}>
+          <h3 className="font-display font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">
+            Notifications
+          </h3>
+          <div className="glass-card rounded-2xl p-4">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+                <Bell className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-foreground">Push Notifications</p>
+                <p className="text-sm text-muted-foreground">
+                  {permission === "denied" 
+                    ? "Blocked in browser settings" 
+                    : "Get alerts when someone follows or likes"}
+                </p>
+              </div>
+              <Switch 
+                checked={isSubscribed} 
+                onCheckedChange={handlePushToggle}
+                disabled={pushLoading || permission === "denied"}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Settings Sections */}
       <div className="space-y-8">
         {settingsSections.map((section, sectionIndex) => (
@@ -165,7 +213,6 @@ export function SettingsView() {
                       <p className="font-medium text-foreground">{item.label}</p>
                       <p className="text-sm text-muted-foreground">{item.description}</p>
                     </div>
-                    {item.hasToggle && <Switch defaultChecked />}
                   </button>
                 );
               })}
