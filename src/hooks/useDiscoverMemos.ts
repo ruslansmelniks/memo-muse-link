@@ -27,13 +27,13 @@ export interface DiscoverMemo {
 
 interface UseDiscoverMemosOptions {
   feed: DiscoverFeed;
-  category?: string | null;
+  categories?: string[];
   searchQuery?: string;
   pageSize?: number;
 }
 
 export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
-  const { feed, category, searchQuery, pageSize = 10 } = options;
+  const { feed, categories = [], searchQuery, pageSize = 10 } = options;
   const { user } = useAuth();
   const [memos, setMemos] = useState<DiscoverMemo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,9 +112,10 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
           .order("created_at", { ascending: false });
       }
 
-      // Apply category filter
-      if (category) {
-        query = query.contains("categories", [category]);
+      // Apply category filter (supports multiple categories with OR logic)
+      if (categories.length > 0) {
+        // Use overlaps to match any of the selected categories
+        query = query.overlaps("categories", categories);
       }
 
       // Apply search filter
@@ -179,7 +180,7 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [feed, category, searchQuery, pageSize, followingIds]);
+  }, [feed, categories, searchQuery, pageSize, followingIds]);
 
   // Reset and load when filters change
   useEffect(() => {
@@ -210,4 +211,85 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
     loadMore,
     refresh,
   };
+}
+
+// Fetch a random public memo
+export async function fetchRandomMemo(): Promise<DiscoverMemo | null> {
+  try {
+    // Get count of public memos
+    const { count } = await supabase
+      .from("memos")
+      .select("id", { count: "exact", head: true })
+      .eq("is_public", true);
+
+    if (!count || count === 0) return null;
+
+    // Get random offset
+    const randomOffset = Math.floor(Math.random() * count);
+
+    const { data, error } = await supabase
+      .from("memos")
+      .select(`
+        id,
+        title,
+        audio_url,
+        transcript,
+        summary,
+        categories,
+        tasks,
+        is_public,
+        created_at,
+        duration,
+        user_id,
+        author_name,
+        likes,
+        view_count,
+        language
+      `)
+      .eq("is_public", true)
+      .range(randomOffset, randomOffset)
+      .single();
+
+    if (error || !data) return null;
+
+    // Fetch author profile
+    let authorInfo = { name: data.author_name || "Anonymous", avatar: undefined as string | undefined };
+    if (data.user_id) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("display_name, avatar_url")
+        .eq("user_id", data.user_id)
+        .single();
+      
+      if (profile) {
+        authorInfo = { 
+          name: profile.display_name || data.author_name || "Anonymous", 
+          avatar: profile.avatar_url || undefined 
+        };
+      }
+    }
+
+    return {
+      id: data.id,
+      title: data.title,
+      audioUrl: data.audio_url,
+      transcript: data.transcript,
+      summary: data.summary,
+      categories: data.categories || [],
+      tasks: data.tasks || [],
+      isPublic: data.is_public,
+      createdAt: new Date(data.created_at),
+      duration: data.duration,
+      author: {
+        id: data.user_id || "",
+        ...authorInfo,
+      },
+      likes: data.likes,
+      viewCount: data.view_count,
+      language: data.language,
+    };
+  } catch (err) {
+    console.error("Error fetching random memo:", err);
+    return null;
+  }
 }

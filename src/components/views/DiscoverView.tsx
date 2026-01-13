@@ -1,65 +1,42 @@
-import { useState, useCallback, useRef, useEffect } from "react";
-import { Compass, TrendingUp, Clock, Users, Search, X, Eye, Heart, Loader2 } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { Compass, SlidersHorizontal, Shuffle, Loader2, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useDiscoverMemos, DiscoverFeed, DiscoverMemo } from "@/hooks/useDiscoverMemos";
-import { useFollow } from "@/hooks/useFollow";
-import { useLikes } from "@/hooks/useLikes";
-import { usePlaybackSpeed } from "@/hooks/usePlaybackSpeed";
+import { useDiscoverMemos, DiscoverFeed, fetchRandomMemo, DiscoverMemo } from "@/hooks/useDiscoverMemos";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { PullToRefreshIndicator } from "@/components/PullToRefresh";
-import { useAuth } from "@/contexts/AuthContext";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Button } from "@/components/ui/button";
-import { AudioWaveform } from "@/components/AudioWaveform";
-import { ShareButton } from "@/components/ShareButton";
+import { StoryMemoCard } from "@/components/StoryMemoCard";
+import { DiscoverFilterSheet } from "@/components/DiscoverFilterSheet";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { Play, Pause, UserPlus, UserMinus } from "lucide-react";
-import { Link } from "react-router-dom";
-
-const FEEDS: { id: DiscoverFeed; label: string; icon: React.ElementType }[] = [
-  { id: "trending", label: "Trending", icon: TrendingUp },
-  { id: "recent", label: "Recent", icon: Clock },
-  { id: "following", label: "Following", icon: Users },
-];
-
-const CATEGORIES = [
-  "All",
-  "Ideas",
-  "Work",
-  "Learning",
-  "Personal",
-  "Creative",
-  "Goals",
-  "Reflections",
-];
-
-const LANGUAGE_DISPLAY: Record<string, { flag: string; short: string }> = {
-  "en-US": { flag: "🇺🇸", short: "EN" },
-  "ru-RU": { flag: "🇷🇺", short: "RU" },
-  "uk-UA": { flag: "🇺🇦", short: "UA" },
-  "es-ES": { flag: "🇪🇸", short: "ES" },
-  "fr-FR": { flag: "🇫🇷", short: "FR" },
-  "de-DE": { flag: "🇩🇪", short: "DE" },
-  "auto": { flag: "🌐", short: "Auto" },
-};
 
 export function DiscoverView() {
-  const { user } = useAuth();
   const [activeFeed, setActiveFeed] = useState<DiscoverFeed>("trending");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [loadingRandom, setLoadingRandom] = useState(false);
+  
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  const { memos, loading, loadingMore, hasMore, loadMore, refresh } = useDiscoverMemos({
+  const { memos, loading, hasMore, loadMore, refresh } = useDiscoverMemos({
     feed: activeFeed,
-    category: selectedCategory === "All" ? null : selectedCategory,
+    categories: selectedCategories,
     searchQuery: debouncedSearch,
   });
 
+  // Load more when approaching end
+  useEffect(() => {
+    if (currentIndex >= memos.length - 2 && hasMore && !loading) {
+      loadMore();
+    }
+  }, [currentIndex, memos.length, hasMore, loading, loadMore]);
+
   // Pull-to-refresh
   const handleRefresh = useCallback(async () => {
+    setCurrentIndex(0);
     await refresh();
     toast.success("Feed refreshed");
   }, [refresh]);
@@ -76,47 +53,57 @@ export function DiscoverView() {
     maxPull: 120,
   });
 
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const loadMoreRef = useRef<HTMLDivElement | null>(null);
-
-  // Set up intersection observer for infinite scroll
-  useEffect(() => {
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-    }
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
-          loadMore();
-        }
-      },
-      { threshold: 0.1, rootMargin: "100px" }
-    );
-
-    if (loadMoreRef.current) {
-      observerRef.current.observe(loadMoreRef.current);
-    }
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, [hasMore, loading, loadingMore, loadMore]);
-
-  const handleFeedChange = (feed: DiscoverFeed) => {
-    if (feed === "following" && !user) {
-      toast.error("Sign in to see memos from people you follow");
-      return;
-    }
+  const handleApplyFilters = useCallback((feed: DiscoverFeed, categories: string[], search: string) => {
     setActiveFeed(feed);
-  };
+    setSelectedCategories(categories);
+    setSearchQuery(search);
+    setCurrentIndex(0);
+  }, []);
+
+  const handleSwipeUp = useCallback(() => {
+    if (currentIndex < memos.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+    }
+  }, [currentIndex, memos.length]);
+
+  const handleSwipeDown = useCallback(() => {
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1);
+    }
+  }, [currentIndex]);
+
+  const handleRandomPlay = useCallback(async () => {
+    setLoadingRandom(true);
+    try {
+      const randomMemo = await fetchRandomMemo();
+      if (randomMemo) {
+        // Find if this memo exists in current list
+        const existingIndex = memos.findIndex(m => m.id === randomMemo.id);
+        if (existingIndex !== -1) {
+          setCurrentIndex(existingIndex);
+        } else {
+          // Add to beginning and go there
+          // For now, just refresh with the random memo shown
+          toast.success(`Playing: ${randomMemo.title}`);
+          // Navigate to the memo page for full experience
+          window.location.href = `/memo/${randomMemo.id}`;
+        }
+      } else {
+        toast.error("No memos found");
+      }
+    } catch {
+      toast.error("Failed to load random memo");
+    } finally {
+      setLoadingRandom(false);
+    }
+  }, [memos]);
+
+  const activeFilterCount = selectedCategories.length + (searchQuery ? 1 : 0);
 
   return (
     <div
       ref={containerRef}
-      className="relative h-full overflow-y-auto"
+      className="relative h-full overflow-hidden bg-background"
       style={{
         transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
         transition: pullDistance === 0 ? "transform 0.2s ease-out" : undefined,
@@ -129,450 +116,156 @@ export function DiscoverView() {
         shouldRefresh={shouldRefresh}
       />
 
-      <div className="container mx-auto px-4 py-6 pb-32">
-        {/* Header */}
-        <div className="mb-6 animate-fade-in">
-          <div className="flex items-center gap-3 mb-2">
+      {/* Minimal Header */}
+      <div className="absolute top-0 left-0 right-0 z-20 px-4 py-4 bg-gradient-to-b from-background via-background/80 to-transparent">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center">
               <Compass className="h-5 w-5 text-white" />
             </div>
-            <div>
-              <h2 className="font-display text-3xl font-bold text-foreground">
-                Discover
-              </h2>
-              <p className="text-muted-foreground text-sm">
-                Explore public voice memos from the community
-              </p>
-            </div>
+            <h2 className="font-display text-xl font-bold text-foreground">
+              Discover
+            </h2>
           </div>
-        </div>
 
-        {/* Feed Tabs */}
-        <div className="flex gap-2 mb-4 animate-fade-in" style={{ animationDelay: "50ms" }}>
-          {FEEDS.map((feed) => {
-            const Icon = feed.icon;
-            const isActive = activeFeed === feed.id;
-            return (
-              <button
-                key={feed.id}
-                onClick={() => handleFeedChange(feed.id)}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
-                  isActive
-                    ? "bg-foreground text-background"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {feed.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Category Chips */}
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide animate-fade-in" style={{ animationDelay: "100ms" }}>
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat === "All" ? null : cat)}
-              className={cn(
-                "px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all",
-                (cat === "All" && !selectedCategory) || selectedCategory === cat
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
-              )}
+          <div className="flex items-center gap-2">
+            {/* Random Play Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleRandomPlay}
+              disabled={loadingRandom}
+              className="h-10 w-10 rounded-xl bg-muted/50 hover:bg-muted"
             >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "150ms" }}>
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search public memos..."
-            className="w-full pl-12 pr-10 py-3 rounded-2xl bg-muted border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          )}
-        </div>
-
-        {/* Loading State */}
-        {loading && (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="bg-card rounded-2xl p-6 border border-border/50 animate-pulse"
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-muted" />
-                  <div className="space-y-2">
-                    <div className="h-4 w-24 bg-muted rounded" />
-                    <div className="h-3 w-16 bg-muted rounded" />
-                  </div>
-                </div>
-                <div className="h-5 w-3/4 bg-muted rounded mb-3" />
-                <div className="h-16 bg-muted rounded-xl mb-4" />
-                <div className="h-4 w-full bg-muted rounded" />
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Empty States */}
-        {!loading && memos.length === 0 && (
-          <div className="text-center py-12">
-            {activeFeed === "following" ? (
-              <>
-                <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="font-display font-semibold text-lg mb-2">No memos yet</h3>
-                <p className="text-muted-foreground">
-                  {user ? "Follow some creators to see their memos here" : "Sign in to follow creators"}
-                </p>
-              </>
-            ) : (
-              <>
-                <Compass className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="font-display font-semibold text-lg mb-2">No memos found</h3>
-                <p className="text-muted-foreground">
-                  {searchQuery ? "Try a different search term" : "Be the first to share a public memo!"}
-                </p>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Memo Cards */}
-        <div className="space-y-4">
-          <AnimatePresence mode="popLayout">
-            {memos.map((memo, index) => (
-              <DiscoverMemoCard
-                key={memo.id}
-                memo={memo}
-                index={index}
-              />
-            ))}
-          </AnimatePresence>
-        </div>
-
-        {/* Load More Trigger */}
-        <div ref={loadMoreRef} className="py-8 flex justify-center">
-          {loadingMore && (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="text-sm">Loading more...</span>
-            </div>
-          )}
-          {!hasMore && memos.length > 0 && (
-            <p className="text-sm text-muted-foreground">You've reached the end</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Discover Memo Card Component
-interface DiscoverMemoCardProps {
-  memo: DiscoverMemo;
-  index: number;
-}
-
-function DiscoverMemoCard({ memo, index }: DiscoverMemoCardProps) {
-  const { user } = useAuth();
-  const { isFollowing, toggleFollow, loading: followLoading } = useFollow();
-  const { isLiked, toggleLike, setInitialLikeCount, getLikeCount } = useLikes();
-  const { speed: playbackSpeed, cycleSpeed: cyclePlaybackSpeed } = usePlaybackSpeed();
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [audioDuration, setAudioDuration] = useState(memo.duration);
-  const [likeCount, setLikeCount] = useState(memo.likes);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-
-  // Initialize like count
-  useEffect(() => {
-    setInitialLikeCount(memo.id, memo.likes);
-  }, [memo.id, memo.likes, setInitialLikeCount]);
-
-  // Track view count when card comes into view
-  useEffect(() => {
-    const incrementView = async () => {
-      await supabase.rpc("increment_view_count", { memo_uuid: memo.id });
-    };
-    incrementView();
-  }, [memo.id]);
-
-  const initAudio = useCallback(() => {
-    if (!memo.audioUrl || audioRef.current) return audioRef.current;
-    
-    const audio = new Audio(memo.audioUrl);
-    audio.playbackRate = playbackSpeed;
-    audio.ontimeupdate = () => setCurrentTime(audio.currentTime);
-    audio.onloadedmetadata = () => setAudioDuration(audio.duration);
-    audio.onended = () => {
-      setIsPlaying(false);
-      setCurrentTime(0);
-    };
-    audioRef.current = audio;
-    return audio;
-  }, [memo.audioUrl, playbackSpeed]);
-
-  const togglePlayback = () => {
-    if (!memo.audioUrl) return;
-    const audio = initAudio();
-    if (!audio) return;
-
-    if (isPlaying) {
-      audio.pause();
-    } else {
-      audio.play();
-    }
-    setIsPlaying(!isPlaying);
-  };
-
-  const handleSeek = useCallback((time: number) => {
-    const audio = initAudio();
-    if (!audio) return;
-    audio.currentTime = time;
-    setCurrentTime(time);
-    if (!isPlaying) {
-      audio.play();
-      setIsPlaying(true);
-    }
-  }, [initAudio, isPlaying]);
-
-  const handleCycleSpeed = () => {
-    cyclePlaybackSpeed();
-    if (audioRef.current) {
-      const speeds = [1, 1.2, 1.5, 2];
-      const currentIndex = speeds.indexOf(playbackSpeed);
-      const nextSpeed = speeds[(currentIndex + 1) % speeds.length];
-      audioRef.current.playbackRate = nextSpeed;
-    }
-  };
-
-  const handleLike = async () => {
-    if (!user) {
-      toast.error("Sign in to like memos");
-      return;
-    }
-    const result = await toggleLike(memo.id, likeCount);
-    if (result.success) {
-      setLikeCount(result.newCount);
-    }
-  };
-
-  const handleFollow = async () => {
-    if (!user) {
-      toast.error("Sign in to follow creators");
-      return;
-    }
-    if (!memo.author.id) return;
-    
-    const success = await toggleFollow(memo.author.id);
-    if (success) {
-      toast.success(isFollowing(memo.author.id) ? "Unfollowed" : "Following");
-    }
-  };
-
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const formatTimeAgo = (date: Date) => {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMins / 60);
-    const diffDays = Math.floor(diffHours / 24);
-
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    return `${diffDays}d ago`;
-  };
-
-  const isOwnMemo = user?.id === memo.author.id;
-  const userIsFollowing = memo.author.id ? isFollowing(memo.author.id) : false;
-  const memoIsLiked = isLiked(memo.id);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.3, delay: index * 0.05 }}
-      whileHover={{ y: -2 }}
-      className="bg-card rounded-2xl p-6 border border-border/50 transition-colors duration-200 hover:border-border"
-    >
-      {/* Header Row - Follow Button */}
-      {!isOwnMemo && memo.author.id && (
-        <div className="flex justify-end mb-3">
-          <Button
-            variant={userIsFollowing ? "outline" : "default"}
-            size="sm"
-            onClick={handleFollow}
-            disabled={followLoading}
-            className="h-8"
-          >
-            {userIsFollowing ? (
-              <>
-                <UserMinus className="h-3.5 w-3.5 mr-1" />
-                Following
-              </>
-            ) : (
-              <>
-                <UserPlus className="h-3.5 w-3.5 mr-1" />
-                Follow
-              </>
-            )}
-          </Button>
-        </div>
-      )}
-
-      {/* Author Row */}
-      <Link to={memo.author.id ? `/profile/${memo.author.id}` : "#"} className="flex items-center gap-3 group mb-4">
-        {memo.author.avatar ? (
-          <img
-            src={memo.author.avatar}
-            alt={memo.author.name}
-            className="w-10 h-10 rounded-full object-cover"
-          />
-        ) : (
-          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-foreground font-medium text-sm">
-            {memo.author.name.charAt(0).toUpperCase()}
-          </div>
-        )}
-        <div>
-          <p className="font-medium text-foreground group-hover:text-primary transition-colors">{memo.author.name}</p>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span>{formatTimeAgo(memo.createdAt)}</span>
-            {memo.language && LANGUAGE_DISPLAY[memo.language] && (
-              <>
-                <span>•</span>
-                <span className="flex items-center gap-1">
-                  {LANGUAGE_DISPLAY[memo.language].flag}
-                  {LANGUAGE_DISPLAY[memo.language].short}
-                </span>
-              </>
-            )}
-          </div>
-        </div>
-      </Link>
-
-      {/* Title */}
-      <Link to={`/memo/${memo.id}`}>
-        <h3 className="font-display font-semibold text-foreground mb-4 hover:text-primary transition-colors">
-          {memo.title}
-        </h3>
-      </Link>
-
-      {/* Audio Player */}
-      {memo.audioUrl && (
-        <div className="bg-muted/30 rounded-xl p-4 mb-5">
-          <div className="flex items-center gap-4">
-            <motion.button
-              onClick={togglePlayback}
-              whileTap={{ scale: 0.92 }}
-              className="w-12 h-12 min-w-[48px] min-h-[48px] rounded-full bg-foreground/10 flex items-center justify-center active:bg-foreground/20 transition-colors flex-shrink-0"
-            >
-              {isPlaying ? (
-                <Pause className="h-4 w-4 text-foreground" />
+              {loadingRandom ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                <Play className="h-4 w-4 text-foreground ml-0.5" />
+                <Shuffle className="h-5 w-5" />
               )}
-            </motion.button>
+            </Button>
 
-            <div className="flex-1 min-w-0">
-              <AudioWaveform
-                audioUrl={memo.audioUrl}
-                isPlaying={isPlaying}
-                currentTime={currentTime}
-                duration={audioDuration}
-                onSeek={handleSeek}
-              />
-            </div>
-
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={handleCycleSpeed}
-                className="px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-md transition-colors min-w-[40px]"
-              >
-                {playbackSpeed}x
-              </button>
-              <div className="text-xs text-muted-foreground font-medium">
-                {formatDuration(currentTime)} / {formatDuration(audioDuration)}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Summary */}
-      <p className="text-sm text-muted-foreground mb-4 leading-relaxed line-clamp-3">
-        {memo.summary || memo.transcript.slice(0, 150)}
-      </p>
-
-      {/* Categories */}
-      {memo.categories.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-4">
-          {memo.categories.slice(0, 3).map((category) => (
-            <span
-              key={category}
-              className="px-3 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground"
+            {/* Filter Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setFilterSheetOpen(true)}
+              className={cn(
+                "h-10 w-10 rounded-xl relative",
+                activeFilterCount > 0 
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                  : "bg-muted/50 hover:bg-muted"
+              )}
             >
-              {category}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Footer: Stats and Actions */}
-      <div className="flex items-center justify-between pt-3 border-t border-border">
-        <div className="flex items-center gap-4">
-          {/* Like Button */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleLike}
-            className={cn(
-              "text-muted-foreground hover:text-primary",
-              memoIsLiked && "text-red-500 hover:text-red-600"
-            )}
-          >
-            <Heart
-              className={cn("h-4 w-4 mr-1", memoIsLiked && "fill-current")}
-            />
-            {likeCount}
-          </Button>
-
-          {/* View Count */}
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <Eye className="h-4 w-4" />
-            {memo.viewCount}
+              <SlidersHorizontal className="h-5 w-5" />
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-xs font-bold flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
           </div>
         </div>
-
-        <ShareButton
-          memoId={memo.id}
-          title={memo.title}
-          summary={memo.summary}
-          isPublic={memo.isPublic}
-        />
       </div>
-    </motion.div>
+
+      {/* Story Cards Container */}
+      <div className="relative h-full">
+        {/* Loading State */}
+        {loading && memos.length === 0 && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading memos...</p>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && memos.length === 0 && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-8 text-center">
+            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
+              <Compass className="h-10 w-10 text-muted-foreground" />
+            </div>
+            <h3 className="font-display font-semibold text-xl mb-2">No memos found</h3>
+            <p className="text-muted-foreground mb-6">
+              {searchQuery 
+                ? "Try adjusting your search or filters" 
+                : activeFeed === "following" 
+                  ? "Follow some creators to see their memos here"
+                  : "Be the first to share a public memo!"
+              }
+            </p>
+            <Button onClick={() => setFilterSheetOpen(true)} variant="outline">
+              <SlidersHorizontal className="h-4 w-4 mr-2" />
+              Adjust Filters
+            </Button>
+          </div>
+        )}
+
+        {/* Story Cards */}
+        <AnimatePresence mode="wait">
+          {memos.length > 0 && (
+            <motion.div
+              key={currentIndex}
+              initial={{ opacity: 0, y: 50 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -50 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="absolute inset-0"
+            >
+              <StoryMemoCard
+                memo={memos[currentIndex]}
+                isActive={true}
+                onSwipeUp={handleSwipeUp}
+                onSwipeDown={handleSwipeDown}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Position Indicators */}
+        {memos.length > 1 && (
+          <div className="absolute bottom-20 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+            {memos.slice(Math.max(0, currentIndex - 2), currentIndex + 3).map((memo, i) => {
+              const actualIndex = Math.max(0, currentIndex - 2) + i;
+              const isActive = actualIndex === currentIndex;
+              return (
+                <motion.div
+                  key={memo.id}
+                  initial={{ scale: 0.8 }}
+                  animate={{ 
+                    scale: isActive ? 1 : 0.8,
+                    opacity: isActive ? 1 : 0.4
+                  }}
+                  className={cn(
+                    "rounded-full transition-all",
+                    isActive ? "w-6 h-2 bg-primary" : "w-2 h-2 bg-muted-foreground"
+                  )}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* Navigation Hint */}
+        {currentIndex > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 0.5 }}
+            className="absolute top-20 left-1/2 -translate-x-1/2 flex flex-col items-center text-muted-foreground z-10"
+          >
+            <ChevronUp className="h-5 w-5 animate-bounce" />
+            <span className="text-xs">Previous</span>
+          </motion.div>
+        )}
+      </div>
+
+      {/* Filter Sheet */}
+      <DiscoverFilterSheet
+        open={filterSheetOpen}
+        onOpenChange={setFilterSheetOpen}
+        activeFeed={activeFeed}
+        selectedCategories={selectedCategories}
+        searchQuery={searchQuery}
+        onApply={handleApplyFilters}
+      />
+    </div>
   );
 }
