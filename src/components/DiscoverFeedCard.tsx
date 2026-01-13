@@ -1,4 +1,4 @@
-import { Heart, Eye, Bookmark, Play, Pause } from "lucide-react";
+import { Heart, Eye, Bookmark, Play, Pause, ListPlus, Check } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +39,7 @@ function generateWaveformBars(id: string, count: number = 50): number[] {
 
 export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
   const { user } = useAuth();
-  const { play, pause, isPlaying, isCurrentTrack, currentTime, duration, seek } = useAudioPlayer();
+  const { play, pause, isPlaying, isCurrentTrack, currentTime, duration, seek, addToQueue, isInQueue } = useAudioPlayer();
   const { isBookmarked, toggleBookmark, loading: bookmarkLoading } = useBookmarks();
   const { isLiked, toggleLike } = useLikes();
   const [likeCount, setLikeCount] = useState(memo.likes);
@@ -256,12 +256,51 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
                 })}
               </div>
 
-              {/* Duration */}
-              <div className="text-xs text-muted-foreground tabular-nums flex-shrink-0 min-w-[36px] text-right">
-                {isThisTrack 
-                  ? formatDuration(currentTime)
-                  : formatDuration(memo.duration)
-                }
+              {/* Duration + Queue */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="text-xs text-muted-foreground tabular-nums min-w-[36px] text-right">
+                  {isThisTrack 
+                    ? formatDuration(currentTime)
+                    : formatDuration(memo.duration)
+                  }
+                </div>
+                
+                {/* Add to Queue */}
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!memo.audioUrl) return;
+                    
+                    const inQueue = isInQueue(memo.id);
+                    if (inQueue) {
+                      toast.info("Already in queue");
+                      return;
+                    }
+                    
+                    addToQueue({
+                      id: memo.id,
+                      title: memo.title,
+                      audioUrl: memo.audioUrl,
+                      author: memo.author,
+                      duration: memo.duration,
+                    });
+                    toast.success("Added to queue");
+                  }}
+                  className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center transition-colors",
+                    isInQueue(memo.id)
+                      ? "bg-primary/20 text-primary"
+                      : "bg-foreground/5 text-muted-foreground hover:bg-foreground/10 hover:text-foreground"
+                  )}
+                >
+                  {isInQueue(memo.id) ? (
+                    <Check className="h-3.5 w-3.5" />
+                  ) : (
+                    <ListPlus className="h-3.5 w-3.5" />
+                  )}
+                </motion.button>
               </div>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { FolderOpen, Clock, Sparkles, GripVertical, Search, X } from "lucide-react";
+import { FolderOpen, Clock, Sparkles, GripVertical, Search, X, Bookmark } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { MemoCard } from "@/components/MemoCard";
 import { SwipeableMemoCard } from "@/components/SwipeableMemoCard";
@@ -7,6 +7,7 @@ import { FolderSidebar } from "@/components/FolderSidebar";
 import { FolderModal } from "@/components/FolderModal";
 import { FolderSummaryModal } from "@/components/FolderSummaryModal";
 import { PullToRefreshIndicator } from "@/components/PullToRefresh";
+import { SavedMemosSection } from "@/components/SavedMemosSection";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useDebounce } from "@/hooks/useDebounce";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Folder } from "@/types/folder";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface FolderSummary {
   overview: string;
@@ -424,22 +426,36 @@ export function LibraryView() {
           progress={progress}
           shouldRefresh={shouldRefresh}
         />
-        <div className="mb-6 animate-fade-in">
-          <h2 className="font-display text-3xl font-bold text-foreground mb-2">
-            {selectedFolder ? selectedFolder.name : selectedFolderId === "unfiled" ? "Unfiled Memos" : "Your Library"}
-          </h2>
-          <p className="text-muted-foreground">
-            {selectedFolder || selectedFolderId === "unfiled" 
-              ? `${filteredMemos.length} memos`
-              : `${memos.length} memos · ${totalTasks} nuggets found`
-            }
-          </p>
-          {isDragging && (
-            <p className="text-sm text-primary mt-2 animate-fade-in">
-              Drop on a folder in the sidebar to move
-            </p>
-          )}
-        </div>
+        {/* Tabs */}
+        <Tabs defaultValue="my-memos" className="w-full">
+          <TabsList className="mb-6 bg-muted/50">
+            <TabsTrigger value="my-memos" className="gap-2">
+              <FolderOpen className="h-4 w-4" />
+              My Memos
+            </TabsTrigger>
+            <TabsTrigger value="saved" className="gap-2">
+              <Bookmark className="h-4 w-4" />
+              Saved
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="my-memos" className="mt-0">
+            <div className="mb-6 animate-fade-in">
+              <h2 className="font-display text-3xl font-bold text-foreground mb-2">
+                {selectedFolder ? selectedFolder.name : selectedFolderId === "unfiled" ? "Unfiled Memos" : "Your Library"}
+              </h2>
+              <p className="text-muted-foreground">
+                {selectedFolder || selectedFolderId === "unfiled" 
+                  ? `${filteredMemos.length} memos`
+                  : `${memos.length} memos · ${totalTasks} nuggets found`
+                }
+              </p>
+              {isDragging && (
+                <p className="text-sm text-primary mt-2 animate-fade-in">
+                  Drop on a folder in the sidebar to move
+                </p>
+              )}
+            </div>
 
         {/* Search Bar */}
         <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "100ms" }}>
@@ -591,6 +607,20 @@ export function LibraryView() {
             </Droppable>
           </div>
         </div>
+          </TabsContent>
+
+          <TabsContent value="saved" className="mt-0">
+            <div className="mb-6 animate-fade-in">
+              <h2 className="font-display text-3xl font-bold text-foreground mb-2">
+                Saved Memos
+              </h2>
+              <p className="text-muted-foreground">
+                Memos you've bookmarked from Discover
+              </p>
+            </div>
+            <SavedMemosSection />
+          </TabsContent>
+        </Tabs>
 
         {/* Folder Modal */}
         <FolderModal

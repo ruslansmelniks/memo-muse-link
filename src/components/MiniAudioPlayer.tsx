@@ -1,9 +1,14 @@
-import { Play, Pause, X } from "lucide-react";
+import { Play, Pause, X, SkipForward, ListMusic } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useState } from "react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export function MiniAudioPlayer() {
   const {
@@ -12,14 +17,19 @@ export function MiniAudioPlayer() {
     currentTime,
     duration,
     playbackSpeed,
+    queue,
     pause,
     resume,
     stop,
     cycleSpeed,
     seek,
+    playNext,
+    removeFromQueue,
+    clearQueue,
   } = useAudioPlayer();
 
   const seekBarRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -40,6 +50,33 @@ export function MiniAudioPlayer() {
     [duration, seek]
   );
 
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!isDragging || !seekBarRef.current || !duration) return;
+      const rect = seekBarRef.current.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const percentage = Math.max(0, Math.min(1, clickX / rect.width));
+      seek(percentage * duration);
+    },
+    [isDragging, duration, seek]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
+  }, [handleMouseMove]);
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      setIsDragging(true);
+      handleSeek(e);
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [handleSeek, handleMouseMove, handleMouseUp]
+  );
+
   return (
     <AnimatePresence>
       {currentTrack && (
@@ -54,8 +91,9 @@ export function MiniAudioPlayer() {
             {/* Seekable progress bar at top */}
             <div
               ref={seekBarRef}
+              onMouseDown={handleMouseDown}
               onClick={handleSeek}
-              className="h-1.5 bg-muted/50 cursor-pointer group relative"
+              className="h-2 bg-muted/50 cursor-pointer group relative"
             >
               <motion.div
                 className="absolute inset-y-0 left-0 bg-primary"
@@ -64,8 +102,8 @@ export function MiniAudioPlayer() {
               />
               {/* Seek handle */}
               <motion.div
-                className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
-                style={{ left: `calc(${progress}% - 6px)` }}
+                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                style={{ left: `calc(${progress}% - 8px)` }}
               />
             </div>
             
@@ -101,6 +139,61 @@ export function MiniAudioPlayer() {
                 >
                   {playbackSpeed}x
                 </button>
+
+                {/* Queue indicator */}
+                {queue.length > 0 && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="relative w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                        <ListMusic className="h-4 w-4" />
+                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center font-medium">
+                          {queue.length}
+                        </span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-72 p-2" align="end">
+                      <div className="flex items-center justify-between mb-2 px-2">
+                        <span className="text-sm font-medium">Up Next</span>
+                        <button 
+                          onClick={clearQueue}
+                          className="text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          Clear all
+                        </button>
+                      </div>
+                      <div className="space-y-1 max-h-48 overflow-y-auto">
+                        {queue.map((track, i) => (
+                          <div 
+                            key={track.id}
+                            className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50"
+                          >
+                            <span className="text-xs text-muted-foreground w-4">{i + 1}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm truncate">{track.title}</p>
+                              <p className="text-xs text-muted-foreground truncate">{track.author.name}</p>
+                            </div>
+                            <button
+                              onClick={() => removeFromQueue(track.id)}
+                              className="text-muted-foreground hover:text-foreground"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                )}
+
+                {/* Skip Next */}
+                {queue.length > 0 && (
+                  <button
+                    onClick={playNext}
+                    className="w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <SkipForward className="h-4 w-4" />
+                  </button>
+                )}
 
                 {/* Play/Pause */}
                 <motion.button
