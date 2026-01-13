@@ -1,9 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Mic, Square, Pause, Play } from "lucide-react";
+import { Mic, Square, Pause, Play, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import { useHaptics } from "@/hooks/useHaptics";
 import { LanguageSelector, SUPPORTED_LANGUAGES } from "@/components/LanguageSelector";
 
@@ -26,16 +25,6 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
   const analyserRef = useRef<AnalyserNode | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const animationRef = useRef<number | null>(null);
-
-  const {
-    transcript,
-    interimTranscript,
-    error: speechError,
-    isSupported,
-    startListening,
-    stopListening,
-    resetTranscript,
-  } = useSpeechRecognition(selectedLanguage === "auto" ? "en-US" : selectedLanguage);
 
   const haptics = useHaptics();
 
@@ -94,10 +83,6 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
       
       setIsRecording(true);
       setDuration(0);
-      resetTranscript();
-      
-      // Start speech recognition
-      startListening();
       
       intervalRef.current = setInterval(() => {
         setDuration(d => d + 1);
@@ -113,19 +98,14 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
     haptics.notification("success");
     
     if (isRecording && mediaRecorderRef.current) {
-      // Stop speech recognition
-      stopListening();
-      
       // Capture duration before we reset
       const finalDuration = duration;
       
       mediaRecorderRef.current.onstop = () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        const finalTranscript = transcript || interimTranscript;
         
-        // Always call onRecordingComplete - ElevenLabs will do the transcription
-        // even if browser speech recognition failed
-        onRecordingComplete(finalTranscript.trim(), finalDuration, audioBlob, selectedLanguage);
+        // ElevenLabs will do the transcription - no browser speech recognition needed
+        onRecordingComplete("", finalDuration, audioBlob, selectedLanguage);
       };
       
       mediaRecorderRef.current.stop();
@@ -145,6 +125,32 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
     }
   };
 
+  const cancelRecording = () => {
+    haptics.notification("warning");
+    
+    if (isRecording && mediaRecorderRef.current) {
+      // Stop without triggering onstop handler
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.stop();
+      
+      // Stop audio visualization
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      
+      // Stop media stream
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      
+      // Reset everything
+      setIsRecording(false);
+      setIsPaused(false);
+      setDuration(0);
+      setAudioLevels(Array(12).fill(0.2));
+      audioChunksRef.current = [];
+    }
+  };
+
   const togglePause = () => {
     haptics.selection();
     
@@ -152,12 +158,10 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
     
     if (isPaused) {
       mediaRecorderRef.current.resume();
-      startListening();
       intervalRef.current = setInterval(() => setDuration(d => d + 1), 1000);
       updateAudioLevels();
     } else {
       mediaRecorderRef.current.pause();
-      stopListening();
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     }
@@ -170,8 +174,6 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const displayTranscript = transcript + (interimTranscript ? ` ${interimTranscript}` : "");
-  
   const selectedLangDisplay = SUPPORTED_LANGUAGES.find(l => l.code === selectedLanguage);
 
   return (
@@ -240,7 +242,6 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
                 variant="hero"
                 size="iconLg"
                 onClick={startRecording}
-                disabled={!isSupported}
                 className="w-28 h-28 rounded-full"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 min-w-8 min-h-8" viewBox="0 0 100 100" fill="currentColor">
@@ -250,6 +251,15 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
             </motion.div>
           ) : (
             <>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={cancelRecording}
+                className="text-muted-foreground hover:text-foreground"
+                title="Cancel recording"
+              >
+                <X className="h-6 w-6" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -300,11 +310,6 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
             "Tap to start recording"
           )}
         </p>
-        {speechError && !isRecording && (
-          <p className="text-xs text-muted-foreground/70 text-center">
-            Live preview unavailable • Audio will be transcribed after recording
-          </p>
-        )}
       </div>
     </motion.div>
   );
