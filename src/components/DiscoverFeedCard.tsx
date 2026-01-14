@@ -195,8 +195,8 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
   };
 
   return (
-    <Card className={cn("border-0 shadow-none bg-transparent", className)}>
-      <CardContent className="p-0">
+    <Card className={cn("bg-card rounded-2xl shadow-sm border border-border/50", className)}>
+      <CardContent className="p-4">
         {/* Recommendation Reason */}
         {memo.recommendationReason && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
