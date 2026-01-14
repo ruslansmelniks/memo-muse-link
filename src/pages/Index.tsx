@@ -9,7 +9,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("record");
-  const [librarySearchQuery, setLibrarySearchQuery] = useState("");
 
   const renderView = () => {
     switch (activeTab) {
@@ -18,16 +17,13 @@ const Index = () => {
       case "discover":
         return <DiscoverView />;
       case "library":
-        return <LibraryView searchQuery={librarySearchQuery} />;
+        return <LibraryView />;
       case "settings":
         return <SettingsView />;
       default:
         return <RecordView />;
     }
   };
-
-  // Show search in header only for library tab
-  const showSearch = activeTab === "library";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -37,12 +33,7 @@ const Index = () => {
         <div className="absolute top-1/2 -left-40 w-64 h-64 rounded-full gradient-secondary opacity-10 blur-3xl" />
       </div>
 
-      <Header 
-        showSearch={showSearch}
-        searchQuery={librarySearchQuery}
-        onSearchChange={setLibrarySearchQuery}
-        searchPlaceholder="Search memos..."
-      />
+      <Header />
       
       <main className="relative flex-1 min-h-0 overflow-hidden">
         <div className="h-full">

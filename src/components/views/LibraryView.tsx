@@ -11,7 +11,6 @@ import { FolderSummaryModal } from "@/components/FolderSummaryModal";
 import { PullToRefreshIndicator } from "@/components/PullToRefresh";
 import { SavedMemosSection } from "@/components/SavedMemosSection";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
-import { useDebounce } from "@/hooks/useDebounce";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
@@ -45,11 +44,7 @@ interface Memo {
   folderId?: string | null;
 }
 
-interface LibraryViewProps {
-  searchQuery?: string;
-}
-
-export function LibraryView({ searchQuery = "" }: LibraryViewProps) {
+export function LibraryView() {
   const [memos, setMemos] = useState<Memo[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +57,6 @@ export function LibraryView({ searchQuery = "" }: LibraryViewProps) {
   const [folderSummary, setFolderSummary] = useState<FolderSummary | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summarizingFolder, setSummarizingFolder] = useState<Folder | null>(null);
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [openStatsModal, setOpenStatsModal] = useState<"time" | "nuggets" | "topics" | null>(null);
   const { user } = useAuth();
   const { getDisplayName, getAvatarUrl } = useProfile();
@@ -379,16 +373,6 @@ export function LibraryView({ searchQuery = "" }: LibraryViewProps) {
       filtered = filtered.filter(m => !m.folderId);
     } else if (selectedFolderId) {
       filtered = filtered.filter(m => m.folderId === selectedFolderId);
-    }
-
-    // Filter by search query (using debounced value)
-    if (debouncedSearchQuery.trim()) {
-      const query = debouncedSearchQuery.toLowerCase();
-      filtered = filtered.filter(m => 
-        m.title.toLowerCase().includes(query) ||
-        m.transcript.toLowerCase().includes(query) ||
-        (m.summary?.toLowerCase().includes(query))
-      );
     }
 
     return filtered;
