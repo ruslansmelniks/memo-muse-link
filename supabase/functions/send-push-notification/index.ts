@@ -13,6 +13,49 @@ interface PushPayload {
   url?: string;
 }
 
+// Input validation constants
+const MAX_TITLE_LENGTH = 100;
+const MAX_BODY_LENGTH = 500;
+const MAX_URL_LENGTH = 2000;
+
+function validateInput(payload: PushPayload): { valid: boolean; error?: string } {
+  if (!payload.userId || typeof payload.userId !== "string") {
+    return { valid: false, error: "Invalid userId" };
+  }
+  
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(payload.userId)) {
+    return { valid: false, error: "Invalid userId format" };
+  }
+
+  if (!payload.title || typeof payload.title !== "string" || payload.title.length > MAX_TITLE_LENGTH) {
+    return { valid: false, error: `Title must be a string with max ${MAX_TITLE_LENGTH} characters` };
+  }
+
+  if (!payload.body || typeof payload.body !== "string" || payload.body.length > MAX_BODY_LENGTH) {
+    return { valid: false, error: `Body must be a string with max ${MAX_BODY_LENGTH} characters` };
+  }
+
+  if (payload.url && (typeof payload.url !== "string" || payload.url.length > MAX_URL_LENGTH)) {
+    return { valid: false, error: `URL must be a string with max ${MAX_URL_LENGTH} characters` };
+  }
+
+  // Validate URL format if provided
+  if (payload.url) {
+    try {
+      // Only allow relative URLs starting with / or valid http/https URLs
+      if (!payload.url.startsWith("/") && !payload.url.startsWith("https://") && !payload.url.startsWith("http://")) {
+        return { valid: false, error: "Invalid URL format" };
+      }
+    } catch {
+      return { valid: false, error: "Invalid URL format" };
+    }
+  }
+
+  return { valid: true };
+}
+
 async function sendPushNotification(
   subscription: { endpoint: string; p256dh: string; auth: string },
   payload: { title: string; body: string; url?: string },
@@ -73,7 +116,7 @@ async function sendPushNotification(
 
   if (!response.ok && response.status !== 201) {
     const text = await response.text();
-    console.error(`Push failed for ${endpoint}: ${response.status} ${text}`);
+    console.error(`Push failed for endpoint: ${response.status}`);
     
     // If subscription is invalid, return false to indicate it should be removed
     if (response.status === 404 || response.status === 410) {
@@ -98,22 +141,55 @@ serve(async (req) => {
       throw new Error("VAPID_PRIVATE_KEY not configured");
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
-
-    const { userId, title, body, url }: PushPayload = await req.json();
-
-    if (!userId || !title || !body) {
+    // SECURITY: Verify this is called by service role (internal trigger) or authenticated user
+    const authHeader = req.headers.get("Authorization");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    
+    // Create admin client for database operations
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+    
+    // Check if this is a service role call (from database trigger)
+    const isServiceRoleCall = authHeader?.includes(serviceRoleKey);
+    
+    // If not service role, verify the caller is authenticated
+    if (!isServiceRoleCall && authHeader) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: { user }, error: authError } = await createClient(
+        supabaseUrl,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: `Bearer ${token}` } } }
+      ).auth.getUser();
+      
+      if (authError || !user) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // Regular users cannot send push notifications to others
       return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
+        JSON.stringify({ error: "Forbidden - only system can send push notifications" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const payload: PushPayload = await req.json();
+
+    // Validate input
+    const validation = validateInput(payload);
+    if (!validation.valid) {
+      return new Response(
+        JSON.stringify({ error: validation.error }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    const { userId, title, body, url } = payload;
+
     // Get all push subscriptions for this user
-    const { data: subscriptions, error: fetchError } = await supabase
+    const { data: subscriptions, error: fetchError } = await supabaseAdmin
       .from("push_subscriptions")
       .select("id, endpoint, p256dh, auth")
       .eq("user_id", userId);
@@ -127,7 +203,7 @@ serve(async (req) => {
       );
     }
 
-    const payload = { title, body, url };
+    const notificationPayload = { title, body, url };
     const expiredSubscriptions: string[] = [];
     let successCount = 0;
 
@@ -135,7 +211,7 @@ serve(async (req) => {
     for (const sub of subscriptions) {
       const result = await sendPushNotification(
         { endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
-        payload,
+        notificationPayload,
         vapidPrivateKey,
         vapidPublicKey
       );
@@ -149,7 +225,7 @@ serve(async (req) => {
 
     // Clean up expired subscriptions
     if (expiredSubscriptions.length > 0) {
-      await supabase
+      await supabaseAdmin
         .from("push_subscriptions")
         .delete()
         .in("id", expiredSubscriptions);

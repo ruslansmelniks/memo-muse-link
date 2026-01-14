@@ -1,9 +1,21 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Input validation constants
+const MAX_FOLDER_NAME_LENGTH = 200;
+const MAX_MEMOS_COUNT = 100;
+const MAX_MEMO_TITLE_LENGTH = 500;
+const MAX_MEMO_SUMMARY_LENGTH = 2000;
+
+function sanitizeString(str: string, maxLength: number): string {
+  if (typeof str !== "string") return "";
+  return str.slice(0, maxLength).replace(/[<>]/g, "");
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -11,6 +23,32 @@ serve(async (req) => {
   }
 
   try {
+    // SECURITY: Verify the caller is authenticated
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authorization header required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    
+    const token = authHeader.replace("Bearer ", "");
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - please sign in" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { folderName, memos } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -18,23 +56,50 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    if (!memos || memos.length === 0) {
+    // Validate memos array
+    if (!memos || !Array.isArray(memos)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid memos data" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (memos.length === 0) {
       return new Response(
         JSON.stringify({ error: "No memos to summarize" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Build memo context for AI
-    const memoContext = memos.map((m: any, i: number) => {
-      return `Memo ${i + 1}: "${m.title}"
-Summary: ${m.summary || "No summary"}
-Nuggets: ${m.nuggets?.length > 0 ? m.nuggets.join(", ") : "None"}
-Date: ${m.createdAt}`;
+    if (memos.length > MAX_MEMOS_COUNT) {
+      return new Response(
+        JSON.stringify({ error: `Too many memos. Maximum ${MAX_MEMOS_COUNT} allowed.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Sanitize folder name
+    const sanitizedFolderName = sanitizeString(folderName || "Folder", MAX_FOLDER_NAME_LENGTH);
+
+    console.log(`Summarizing folder "${sanitizedFolderName}" with ${memos.length} memos for user ${user.id}`);
+
+    // Build memo context for AI with sanitized inputs
+    const memoContext = memos.slice(0, MAX_MEMOS_COUNT).map((m: any, i: number) => {
+      const title = sanitizeString(m.title || "Untitled", MAX_MEMO_TITLE_LENGTH);
+      const summary = sanitizeString(m.summary || "No summary", MAX_MEMO_SUMMARY_LENGTH);
+      const nuggets = Array.isArray(m.nuggets) 
+        ? m.nuggets.slice(0, 10).map((n: any) => sanitizeString(String(n), 500)).join(", ")
+        : "None";
+      const createdAt = sanitizeString(m.createdAt || "Unknown date", 50);
+      
+      return `Memo ${i + 1}: "${title}"
+Summary: ${summary}
+Nuggets: ${nuggets}
+Date: ${createdAt}`;
     }).join("\n\n");
 
     const systemPrompt = `You are an expert at synthesizing information from multiple voice memos. 
-Analyze the following memos from the folder "${folderName}" and provide:
+Analyze the following memos from the folder "${sanitizedFolderName}" and provide:
 1. A concise overview (2-3 sentences) of the main themes
 2. Key themes or topics (as a list of 3-5 short phrases)
 3. All important nuggets/action items combined and deduplicated
@@ -106,7 +171,7 @@ Be concise and actionable. Focus on what's most important.`;
         );
       }
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      console.error("AI gateway error:", response.status);
       throw new Error("AI gateway error");
     }
 
