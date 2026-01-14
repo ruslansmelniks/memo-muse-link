@@ -8,10 +8,11 @@ import { LanguageSelector, SUPPORTED_LANGUAGES } from "@/components/LanguageSele
 
 interface VoiceRecorderProps {
   onRecordingComplete: (transcript: string, duration: number, audioBlob: Blob | null, language: string) => void;
+  onRecordingStateChange?: (isRecording: boolean) => void;
   initialLanguage?: string;
 }
 
-export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }: VoiceRecorderProps) {
+export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, initialLanguage = "auto" }: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -113,6 +114,7 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
       analyserRef.current.fftSize = 256;
       
       setIsRecording(true);
+      onRecordingStateChange?.(true);
       setDuration(0);
       
       intervalRef.current = setInterval(() => {
@@ -158,6 +160,7 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
       }
       
       setIsRecording(false);
+      onRecordingStateChange?.(false);
       setIsPaused(false);
       setAudioLevels(Array(12).fill(0.2));
     }
@@ -186,6 +189,7 @@ export function VoiceRecorder({ onRecordingComplete, initialLanguage = "auto" }:
       
       // Reset everything
       setIsRecording(false);
+      onRecordingStateChange?.(false);
       setIsPaused(false);
       setDuration(0);
       setAudioLevels(Array(12).fill(0.2));

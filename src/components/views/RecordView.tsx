@@ -4,6 +4,7 @@ import { RecordingModal } from "@/components/RecordingModal";
 import { MemoCard } from "@/components/MemoCard";
 import { AuthModal } from "@/components/AuthModal";
 import { FolderModal } from "@/components/FolderModal";
+import { TopicSuggestions } from "@/components/TopicSuggestions";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +44,7 @@ export function RecordView() {
   const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
   const [currentLanguage, setCurrentLanguage] = useState("auto");
   const [isSavingFolder, setIsSavingFolder] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
   
   const { user } = useAuth();
   const { getDisplayName, getAvatarUrl } = useProfile();
@@ -397,8 +399,14 @@ export function RecordView() {
   return (
     <div className="container mx-auto px-4 py-10 pb-32">
       {/* Voice Recorder */}
-      <div className="mb-16">
-        <VoiceRecorder onRecordingComplete={handleRecordingComplete} />
+      <div className="mb-8">
+        <VoiceRecorder 
+          onRecordingComplete={handleRecordingComplete} 
+          onRecordingStateChange={setIsRecording}
+        />
+        
+        {/* Topic Suggestions - shown when not recording */}
+        <TopicSuggestions isRecording={isRecording} />
       </div>
 
       {/* Auth prompt for non-logged in users */}
