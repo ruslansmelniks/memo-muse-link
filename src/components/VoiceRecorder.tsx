@@ -29,6 +29,10 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const animationRef = useRef<number | null>(null);
   const mimeTypeRef = useRef<string>("audio/webm");
+  
+  // Refs to track recording state for animation loop (closures don't capture state updates)
+  const isRecordingRef = useRef(false);
+  const isPausedRef = useRef(false);
 
   const haptics = useHaptics();
 
@@ -67,7 +71,7 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
   }, []);
 
   const updateAudioLevels = () => {
-    if (!analyserRef.current || !isRecording || isPaused) return;
+    if (!analyserRef.current || !isRecordingRef.current || isPausedRef.current) return;
     
     const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
     analyserRef.current.getByteFrequencyData(dataArray);
@@ -114,8 +118,9 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       analyserRef.current.fftSize = 256;
       
       setIsRecording(true);
+      isRecordingRef.current = true;
+      isPausedRef.current = false;
       onRecordingStateChange?.(true);
-      setDuration(0);
       
       intervalRef.current = setInterval(() => {
         setDuration(d => d + 1);
@@ -160,8 +165,10 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       }
       
       setIsRecording(false);
+      isRecordingRef.current = false;
       onRecordingStateChange?.(false);
       setIsPaused(false);
+      isPausedRef.current = false;
       setAudioLevels(Array(12).fill(0.2));
     }
   };
@@ -189,8 +196,10 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       
       // Reset everything
       setIsRecording(false);
+      isRecordingRef.current = false;
       onRecordingStateChange?.(false);
       setIsPaused(false);
+      isPausedRef.current = false;
       setDuration(0);
       setAudioLevels(Array(12).fill(0.2));
       audioChunksRef.current = [];
@@ -204,10 +213,12 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
     
     if (isPaused) {
       mediaRecorderRef.current.resume();
+      isPausedRef.current = false;
       intervalRef.current = setInterval(() => setDuration(d => d + 1), 1000);
       updateAudioLevels();
     } else {
       mediaRecorderRef.current.pause();
+      isPausedRef.current = true;
       if (intervalRef.current) clearInterval(intervalRef.current);
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     }
