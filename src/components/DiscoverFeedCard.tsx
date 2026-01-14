@@ -18,7 +18,18 @@ import { useState, useMemo, useCallback, useRef } from "react";
 interface DiscoverFeedCardProps {
   memo: DiscoverMemo;
   className?: string;
+  index?: number;
 }
+
+// Consistent category colors matching MemoCard
+const categoryColors: Record<string, string> = {
+  Ideas: "bg-coral-100 text-coral-500",
+  Nuggets: "bg-mint-100 text-mint-400",
+  Reflections: "bg-lavender-100 text-lavender-400",
+  Goals: "bg-coral-50 text-coral-400",
+  Gratitude: "bg-mint-50 text-mint-300",
+  Creative: "bg-lavender-50 text-lavender-300",
+};
 
 // Generate pseudo-random waveform bars based on memo id
 function generateWaveformBars(id: string, count: number = 50): number[] {
@@ -39,7 +50,7 @@ function generateWaveformBars(id: string, count: number = 50): number[] {
   return bars;
 }
 
-export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
+export function DiscoverFeedCard({ memo, className, index = 0 }: DiscoverFeedCardProps) {
   const { user } = useAuth();
   const { play, pause, isPlaying, isCurrentTrack, currentTime, duration, seek, addToQueue, isInQueue } = useAudioPlayer();
   const { isBookmarked, toggleBookmark, loading: bookmarkLoading } = useBookmarks();
@@ -195,8 +206,17 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
   };
 
   return (
-    <Card className={cn("bg-card rounded-2xl border border-border/50 transition-colors duration-200 hover:border-border overflow-hidden", className)}>
-      <CardContent className="p-6">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ 
+        duration: 0.4, 
+        delay: index * 0.1,
+        ease: [0.25, 0.46, 0.45, 0.94]
+      }}
+    >
+      <Card className={cn("bg-card rounded-2xl border border-border/50 shadow-sm transition-all duration-200 hover:border-border hover:shadow-md", className)}>
+        <CardContent className="p-6">
         {/* Recommendation Reason */}
         {memo.recommendationReason && (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
@@ -387,7 +407,10 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
               <Badge 
                 key={category} 
                 variant="secondary"
-                className="text-xs font-normal px-2 py-0.5"
+                className={cn(
+                  "text-xs font-normal px-2 py-0.5",
+                  categoryColors[category] || "bg-muted text-muted-foreground"
+                )}
               >
                 {category}
               </Badge>
@@ -432,7 +455,8 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
             </button>
           </div>
         </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 }

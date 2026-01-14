@@ -192,7 +192,7 @@ export function DiscoverView() {
         ref={scrollContainerRef}
         className="h-[calc(100%-140px)] overflow-y-auto"
       >
-        <div className="px-4 py-4 space-y-1">
+        <div className="px-4 py-6 space-y-4">
           {/* Loading State */}
           {loading && memos.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 gap-4">
@@ -229,10 +229,7 @@ export function DiscoverView() {
 
           {/* Memo Cards */}
           {memos.map((memo, index) => (
-            <div key={memo.id}>
-              <DiscoverFeedCard memo={memo} className="py-4" />
-              {index < memos.length - 1 && <Separator />}
-            </div>
+            <DiscoverFeedCard key={memo.id} memo={memo} index={index} />
           ))}
 
           {/* Load More Indicator */}
