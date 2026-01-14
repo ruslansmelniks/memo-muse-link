@@ -20,6 +20,7 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
   const [selectedLanguage, setSelectedLanguage] = useState(initialLanguage);
   const [showCompletionFeedback, setShowCompletionFeedback] = useState(false);
   const [showCancelFeedback, setShowCancelFeedback] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
   
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -89,6 +90,9 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
 
   const startRecording = async () => {
     try {
+      // Show initializing state while accessing microphone
+      setIsInitializing(true);
+      
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
       
@@ -122,6 +126,11 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       isPausedRef.current = false;
       onRecordingStateChange?.(true);
       
+      // Brief delay before showing levels (let user see "Listening..." feedback)
+      setTimeout(() => {
+        setIsInitializing(false);
+      }, 600);
+      
       intervalRef.current = setInterval(() => {
         setDuration(d => d + 1);
       }, 1000);
@@ -129,6 +138,7 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       updateAudioLevels();
     } catch (err) {
       console.error("Error accessing microphone:", err);
+      setIsInitializing(false);
     }
   };
 
@@ -250,37 +260,65 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
           />
         </div>
 
-        {/* Audio Visualizer */}
-        <div className="flex items-center justify-center gap-1.5 h-16">
-          {audioLevels.map((level, i) => (
-            <motion.div
-              key={i}
-              className={cn(
-                "w-1.5 rounded-full",
-                isRecording && !isPaused 
-                  ? "bg-gradient-to-t from-primary/60 to-primary" 
-                  : "bg-muted-foreground/20"
-              )}
-              initial={{ height: "15%" }}
-              animate={{ 
-                height: isRecording && !isPaused 
-                  ? `${Math.max(15, level * 100)}%` 
-                  : "15%",
-                scaleY: isRecording && !isPaused ? [1, 1.1, 1] : 1,
-              }}
-              transition={{
-                height: { duration: 0.08, ease: "easeOut" },
-                scaleY: { 
-                  duration: 0.3 + (i * 0.02), 
-                  repeat: isRecording && !isPaused ? Infinity : 0,
-                  ease: "easeInOut"
-                }
-              }}
-              style={{
-                originY: 0.5,
-              }}
-            />
-          ))}
+        {/* Audio Visualizer with Listening indicator */}
+        <div className="flex items-center justify-center gap-1.5 h-16 relative">
+          <AnimatePresence mode="wait">
+            {isInitializing ? (
+              <motion.div
+                key="listening"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute inset-0 flex items-center justify-center"
+              >
+                <div className="flex items-center gap-2">
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
+                    className="w-2 h-2 rounded-full bg-primary"
+                  />
+                  <span className="text-sm font-medium text-primary">Listening...</span>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="waveform"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex items-center justify-center gap-1.5 h-full"
+              >
+                {audioLevels.map((level, i) => (
+                  <motion.div
+                    key={i}
+                    className={cn(
+                      "w-1.5 rounded-full",
+                      isRecording && !isPaused 
+                        ? "bg-gradient-to-t from-primary/60 to-primary" 
+                        : "bg-muted-foreground/20"
+                    )}
+                    initial={{ height: "15%" }}
+                    animate={{ 
+                      height: isRecording && !isPaused 
+                        ? `${Math.max(15, level * 100)}%` 
+                        : "15%",
+                      scaleY: isRecording && !isPaused ? [1, 1.1, 1] : 1,
+                    }}
+                    transition={{
+                      height: { duration: 0.08, ease: "easeOut" },
+                      scaleY: { 
+                        duration: 0.3 + (i * 0.02), 
+                        repeat: isRecording && !isPaused ? Infinity : 0,
+                        ease: "easeInOut"
+                      }
+                    }}
+                    style={{
+                      originY: 0.5,
+                    }}
+                  />
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Timer with animation */}
