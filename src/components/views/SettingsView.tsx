@@ -100,10 +100,10 @@ export function SettingsView() {
   ];
 
   return (
-    <div className="container mx-auto px-4 py-6 pb-32">
+    <div className="container mx-auto px-4 py-8 pb-36">
       {/* Header */}
-      <div className="mb-8 animate-fade-in">
-        <h2 className="font-display text-3xl font-bold text-foreground mb-2">
+      <div className="mb-10 animate-fade-in">
+        <h2 className="font-display text-3xl font-bold text-foreground mb-3">
           Settings
         </h2>
         <p className="text-muted-foreground">
@@ -133,7 +133,7 @@ export function SettingsView() {
       )}
 
       {/* Profile Card */}
-      <div className="glass-card rounded-2xl p-5 mb-8 animate-fade-in" style={{ animationDelay: "100ms" }}>
+      <div className="glass-card rounded-2xl p-6 mb-10 animate-fade-in" style={{ animationDelay: "100ms" }}>
         <div className="flex items-center gap-4">
           {avatarUrl ? (
             <img 
@@ -157,7 +157,7 @@ export function SettingsView() {
       </div>
 
       {/* Language Preference */}
-      <div className="animate-fade-in mb-8" style={{ animationDelay: "125ms" }}>
+      <div className="animate-fade-in mb-10" style={{ animationDelay: "125ms" }}>
         <h3 className="font-display font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">
           Language
         </h3>
@@ -181,7 +181,7 @@ export function SettingsView() {
 
       {/* Push Notifications */}
       {user && isSupported && (
-        <div className="animate-fade-in mb-8" style={{ animationDelay: "130ms" }}>
+        <div className="animate-fade-in mb-10" style={{ animationDelay: "130ms" }}>
           <h3 className="font-display font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">
             Notifications
           </h3>
@@ -209,7 +209,7 @@ export function SettingsView() {
       )}
 
       {/* Settings Sections */}
-      <div className="space-y-8">
+      <div className="space-y-10">
         {settingsSections.map((section, sectionIndex) => (
           <div 
             key={section.title}
@@ -244,7 +244,7 @@ export function SettingsView() {
 
       {/* Logout */}
       {user && (
-        <div className="mt-8 animate-fade-in" style={{ animationDelay: "350ms" }}>
+        <div className="mt-12 animate-fade-in" style={{ animationDelay: "350ms" }}>
           <Button 
             variant="ghost" 
             className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"

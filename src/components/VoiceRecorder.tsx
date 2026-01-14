@@ -227,9 +227,9 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.4, ease: "easeOut" }}
-      className="bg-muted/30 rounded-3xl p-10 border border-border/50 relative overflow-hidden"
+      className="bg-muted/30 rounded-3xl p-12 border border-border/50 relative overflow-hidden"
     >
-      <div className="flex flex-col items-center space-y-8">
+      <div className="flex flex-col items-center space-y-10">
         {/* Language Selector */}
         <div className="w-full flex justify-center">
           <LanguageSelector
@@ -240,7 +240,7 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
         </div>
 
         {/* Audio Visualizer */}
-        <div className="flex items-center justify-center gap-1 h-28">
+        <div className="flex items-center justify-center gap-1.5 h-32">
           {audioLevels.map((level, i) => (
             <motion.div
               key={i}

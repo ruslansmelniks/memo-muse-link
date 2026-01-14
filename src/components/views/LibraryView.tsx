@@ -414,7 +414,7 @@ export function LibraryView() {
     <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div 
         ref={containerRef}
-        className="container mx-auto px-4 py-6 pb-32 relative overflow-auto"
+        className="container mx-auto px-4 py-8 pb-36 relative overflow-auto"
         style={{ 
           transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
           transition: pullDistance === 0 ? 'transform 0.2s ease-out' : undefined,
@@ -428,7 +428,7 @@ export function LibraryView() {
         />
         {/* Tabs */}
         <Tabs defaultValue="my-memos" className="w-full">
-          <TabsList className="mb-6 bg-muted/50">
+          <TabsList className="mb-8 bg-muted/50">
             <TabsTrigger value="my-memos" className="gap-2">
               <FolderOpen className="h-4 w-4" />
               My Memos
@@ -440,8 +440,8 @@ export function LibraryView() {
           </TabsList>
 
           <TabsContent value="my-memos" className="mt-0">
-            <div className="mb-6 animate-fade-in">
-              <h2 className="font-display text-3xl font-bold text-foreground mb-2">
+            <div className="mb-8 animate-fade-in">
+              <h2 className="font-display text-3xl font-bold text-foreground mb-3">
                 {selectedFolder ? selectedFolder.name : selectedFolderId === "unfiled" ? "Unfiled Memos" : "Your Library"}
               </h2>
               <p className="text-muted-foreground">
@@ -458,7 +458,7 @@ export function LibraryView() {
             </div>
 
         {/* Search Bar */}
-        <div className="relative mb-6 animate-fade-in" style={{ animationDelay: "100ms" }}>
+        <div className="relative mb-8 animate-fade-in" style={{ animationDelay: "100ms" }}>
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
           <input
             type="text"
@@ -477,7 +477,7 @@ export function LibraryView() {
           )}
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex flex-col lg:flex-row gap-8">
           {/* Folder Sidebar with drop zones */}
           <FolderSidebar
             folders={folders}

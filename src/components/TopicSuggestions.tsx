@@ -32,11 +32,11 @@ export function TopicSuggestions({ isRecording }: TopicSuggestionsProps) {
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: -10 }}
         transition={{ duration: 0.3, delay: 0.2 }}
-        className="mt-8 text-center"
+        className="mt-10 text-center"
       >
         {/* Header */}
         <motion.div 
-          className="flex items-center justify-center gap-2 mb-4"
+          className="flex items-center justify-center gap-2 mb-5"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.3 }}
@@ -48,7 +48,7 @@ export function TopicSuggestions({ isRecording }: TopicSuggestionsProps) {
         </motion.div>
 
         {/* Topic Pills */}
-        <div className="flex flex-wrap items-center justify-center gap-2 mb-4 max-w-md mx-auto">
+        <div className="flex flex-wrap items-center justify-center gap-3 mb-5 max-w-md mx-auto">
           <AnimatePresence mode="popLayout">
             {topics.map((topic, index) => (
               <motion.button
