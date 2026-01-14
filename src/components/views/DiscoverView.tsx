@@ -7,12 +7,12 @@ import { PullToRefreshIndicator } from "@/components/PullToRefresh";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Button } from "@/components/ui/button";
 import { DiscoverFeedCard } from "@/components/DiscoverFeedCard";
+import { DiscoverCardSkeleton } from "@/components/DiscoverCardSkeleton";
 import { DiscoverFilterSheet } from "@/components/DiscoverFilterSheet";
 import { DEMO_MEMOS } from "@/data/demoMemos";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { Separator } from "@/components/ui/separator";
 
 const FEED_TABS: { id: DiscoverFeed; label: string; icon: React.ElementType }[] = [
   { id: "for-you", label: "For You", icon: Sparkles },
@@ -193,12 +193,13 @@ export function DiscoverView() {
         className="h-[calc(100%-140px)] overflow-y-auto"
       >
         <div className="px-4 py-6 space-y-4">
-          {/* Loading State */}
+          {/* Loading State - Skeleton Cards */}
           {loading && memos.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 gap-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-muted-foreground">Loading memos...</p>
-            </div>
+            <>
+              {Array.from({ length: 4 }).map((_, i) => (
+                <DiscoverCardSkeleton key={i} index={i} />
+              ))}
+            </>
           )}
 
           {/* Empty State */}
