@@ -195,35 +195,34 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
   };
 
   return (
-    <Card className={cn("bg-card rounded-2xl shadow-sm border border-border/50", className)}>
-      <CardContent className="p-4">
+    <Card className={cn("bg-card rounded-2xl border border-border/50 transition-colors duration-200 hover:border-border overflow-hidden", className)}>
+      <CardContent className="p-6">
         {/* Recommendation Reason */}
         {memo.recommendationReason && (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
             {getRecommendationIcon()}
             <span>{memo.recommendationReason.text}</span>
           </div>
         )}
         {/* Author Row */}
-        <div className="flex items-center justify-between gap-3 mb-3">
+        <div className="flex items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3 min-w-0">
             <Link to={profileLink}>
-              <Avatar className="h-8 w-8 flex-shrink-0">
+              <Avatar className="h-10 w-10 flex-shrink-0">
                 <AvatarImage src={memo.author.avatar} alt={memo.author.name} />
-                <AvatarFallback className="bg-muted text-muted-foreground text-xs">
+                <AvatarFallback className="bg-muted text-muted-foreground text-sm">
                   {memo.author.name.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             </Link>
-            <div className="flex items-center gap-2 text-sm min-w-0">
+            <div className="min-w-0">
               <Link 
                 to={profileLink}
-                className="font-medium text-foreground hover:text-primary transition-colors truncate"
+                className="font-medium text-foreground hover:text-primary transition-colors truncate block"
               >
                 {memo.author.name}
               </Link>
-              <span className="text-muted-foreground flex-shrink-0">·</span>
-              <span className="text-muted-foreground flex-shrink-0">{formatTimeAgo(memo.createdAt)}</span>
+              <span className="text-xs text-muted-foreground">{formatTimeAgo(memo.createdAt)}</span>
             </div>
           </div>
           
@@ -235,7 +234,7 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
               onClick={handleFollow}
               disabled={followLoading}
               className={cn(
-                "h-7 px-3 text-xs font-medium flex-shrink-0",
+                "h-8 px-3 text-xs font-medium flex-shrink-0",
                 authorIsFollowed && "border-primary/30 text-primary hover:bg-primary/10"
               )}
             >
@@ -256,26 +255,26 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
 
         {/* Title */}
         <Link to={memoLink}>
-          <h3 className="font-display font-semibold text-lg text-foreground leading-tight mb-2 hover:text-primary transition-colors line-clamp-2">
+          <h3 className="font-display font-semibold text-lg text-foreground leading-tight mb-3 hover:text-primary transition-colors line-clamp-2">
             {memo.title}
           </h3>
         </Link>
 
         {/* Summary/Excerpt */}
-        <p className="text-muted-foreground text-sm leading-relaxed line-clamp-2 mb-3">
+        <p className="text-muted-foreground text-sm leading-relaxed line-clamp-2 mb-4">
           {memo.summary || memo.transcript.slice(0, 150)}
         </p>
 
         {/* SoundCloud-style Mini Player */}
         {memo.audioUrl && (
-          <div className="bg-muted/30 rounded-xl p-3 mb-3">
+          <div className="bg-muted/30 rounded-xl p-4 mb-4">
             <div className="flex items-center gap-3">
               {/* Play Button */}
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={handlePlayToggle}
                 className={cn(
-                  "w-10 h-10 min-w-[40px] rounded-full flex items-center justify-center transition-colors flex-shrink-0",
+                  "w-11 h-11 min-w-[44px] rounded-full flex items-center justify-center transition-colors flex-shrink-0",
                   isThisTrackPlaying
                     ? "bg-primary text-primary-foreground"
                     : "bg-foreground/10 text-foreground hover:bg-foreground/20"
@@ -292,7 +291,7 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
               <div 
                 ref={waveformRef}
                 onClick={handleWaveformClick}
-                className="flex-1 h-10 flex items-end gap-[2px] cursor-pointer group"
+                className="flex-1 min-w-0 h-10 flex items-end gap-[2px] cursor-pointer group overflow-hidden"
               >
                 {waveformBars.map((height, i) => {
                   const barProgress = (i / waveformBars.length) * 100;
@@ -381,14 +380,14 @@ export function DiscoverFeedCard({ memo, className }: DiscoverFeedCardProps) {
         )}
 
         {/* Bottom Row: Categories + Actions */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 pt-1">
           {/* Left: Categories */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
             {memo.categories.slice(0, 2).map((category) => (
               <Badge 
                 key={category} 
                 variant="secondary"
-                className="text-xs font-normal"
+                className="text-xs font-normal px-2 py-0.5"
               >
                 {category}
               </Badge>
