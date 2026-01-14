@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
-import { FolderOpen, Clock, Sparkles, GripVertical, Search, X, Bookmark } from "lucide-react";
+import { FolderOpen, Clock, Sparkles, GripVertical, Search, X, Bookmark, Tag } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { LibraryStatsModals } from "@/components/LibraryStatsModals";
 import { MemoCard } from "@/components/MemoCard";
 import { SwipeableMemoCard } from "@/components/SwipeableMemoCard";
 import { FolderSidebar } from "@/components/FolderSidebar";
@@ -59,6 +60,7 @@ export function LibraryView() {
   const [summarizingFolder, setSummarizingFolder] = useState<Folder | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const [openStatsModal, setOpenStatsModal] = useState<"time" | "nuggets" | "topics" | null>(null);
   const { user } = useAuth();
   const { getDisplayName, getAvatarUrl } = useProfile();
   const isMobile = useIsMobile();
@@ -393,6 +395,10 @@ export function LibraryView() {
   const totalDuration = memos.reduce((acc, m) => acc + m.duration, 0);
   const totalTasks = memos.reduce((acc, m) => acc + m.tasks.length, 0);
   const unfiledCount = memos.filter(m => !m.folderId).length;
+  
+  // Count unique categories
+  const uniqueCategories = new Set(memos.flatMap(m => m.categories));
+  const totalTopics = uniqueCategories.size;
 
   const selectedFolder = selectedFolderId && selectedFolderId !== "unfiled" 
     ? folders.find(f => f.id === selectedFolderId) 
@@ -496,28 +502,57 @@ export function LibraryView() {
           <div className="flex-1">
             {/* Stats Cards - Only show when viewing all */}
             {!selectedFolderId && (
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="glass-card rounded-2xl p-4 animate-fade-in" style={{ animationDelay: "150ms" }}>
-                  <div className="w-10 h-10 rounded-xl gradient-mint flex items-center justify-center mb-2">
+              <div className="grid grid-cols-3 gap-4 mb-8">
+                <button 
+                  onClick={() => setOpenStatsModal("time")}
+                  className="glass-card rounded-2xl p-4 animate-fade-in text-left hover:bg-muted/50 transition-colors group"
+                  style={{ animationDelay: "150ms" }}
+                >
+                  <div className="w-10 h-10 rounded-xl gradient-mint flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
                     <Clock className="h-5 w-5 text-mint-400" />
                   </div>
                   <p className="text-2xl font-display font-bold text-foreground">
                     {Math.round(totalDuration / 60)}m
                   </p>
                   <p className="text-xs text-muted-foreground">Total recorded</p>
-                </div>
+                </button>
                 
-                <div className="glass-card rounded-2xl p-4 animate-fade-in" style={{ animationDelay: "200ms" }}>
-                  <div className="w-10 h-10 rounded-xl gradient-lavender flex items-center justify-center mb-2">
+                <button 
+                  onClick={() => setOpenStatsModal("nuggets")}
+                  className="glass-card rounded-2xl p-4 animate-fade-in text-left hover:bg-muted/50 transition-colors group"
+                  style={{ animationDelay: "200ms" }}
+                >
+                  <div className="w-10 h-10 rounded-xl gradient-lavender flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
                     <Sparkles className="h-5 w-5 text-lavender-400" />
                   </div>
                   <p className="text-2xl font-display font-bold text-foreground">
                     {totalTasks}
                   </p>
                   <p className="text-xs text-muted-foreground">Nuggets</p>
-                </div>
+                </button>
+
+                <button 
+                  onClick={() => setOpenStatsModal("topics")}
+                  className="glass-card rounded-2xl p-4 animate-fade-in text-left hover:bg-muted/50 transition-colors group"
+                  style={{ animationDelay: "250ms" }}
+                >
+                  <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
+                    <Tag className="h-5 w-5 text-primary-foreground" />
+                  </div>
+                  <p className="text-2xl font-display font-bold text-foreground">
+                    {totalTopics}
+                  </p>
+                  <p className="text-xs text-muted-foreground">Topics</p>
+                </button>
               </div>
             )}
+            
+            {/* Stats Modals */}
+            <LibraryStatsModals 
+              memos={memos}
+              openModal={openStatsModal}
+              onClose={() => setOpenStatsModal(null)}
+            />
 
             {/* Memos List - Droppable area */}
             <Droppable droppableId={selectedFolderId || "all-memos"}>
