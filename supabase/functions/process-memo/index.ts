@@ -1,9 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Input validation constants
+const MAX_TRANSCRIPT_LENGTH = 50000; // 50k characters max
+const VALID_LANGUAGES = ["auto", "en-US", "ru-RU", "uk-UA", "es-ES", "fr-FR", "de-DE"];
+
+function sanitizeForLogging(str: string, maxLength: number = 100): string {
+  return str.replace(/[\n\r]/g, " ").slice(0, maxLength);
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -11,23 +20,70 @@ serve(async (req) => {
   }
 
   try {
+    // SECURITY: Verify the caller is authenticated
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authorization header required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    
+    const token = authHeader.replace("Bearer ", "");
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
+    
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - please sign in" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { transcript, language } = await req.json();
     
-    if (!transcript || transcript.trim().length === 0) {
+    // Validate transcript
+    if (!transcript || typeof transcript !== "string") {
       return new Response(
         JSON.stringify({ error: "No transcript provided" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    const trimmedTranscript = transcript.trim();
+    if (trimmedTranscript.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Transcript cannot be empty" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (trimmedTranscript.length > MAX_TRANSCRIPT_LENGTH) {
+      return new Response(
+        JSON.stringify({ error: `Transcript too long. Maximum ${MAX_TRANSCRIPT_LENGTH} characters allowed.` }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate language
+    const validLanguage = language && VALID_LANGUAGES.includes(language) ? language : "auto";
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    const isAutoDetect = language === "auto" || !language;
+    console.log(`Processing memo for user ${user.id}, transcript length: ${trimmedTranscript.length}`);
+
+    const isAutoDetect = validLanguage === "auto";
     
-const systemPrompt = `You are an AI assistant that processes voice memo transcripts. The transcript may be in any language (commonly English or Russian).
+    const systemPrompt = `You are an AI assistant that processes voice memo transcripts. The transcript may be in any language (commonly English or Russian).
 
 Analyze the transcript and extract:
 
@@ -59,7 +115,7 @@ The title, summary, and nuggets should be in the SAME LANGUAGE as the original t
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Process this voice memo transcript:\n\n"${transcript}"` },
+          { role: "user", content: `Process this voice memo transcript:\n\n"${trimmedTranscript}"` },
         ],
       }),
     });
@@ -78,7 +134,7 @@ The title, summary, and nuggets should be in the SAME LANGUAGE as the original t
         );
       }
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      console.error("AI gateway error:", response.status, sanitizeForLogging(errorText));
       throw new Error("AI processing failed");
     }
 
@@ -96,29 +152,29 @@ The title, summary, and nuggets should be in the SAME LANGUAGE as the original t
       const cleanContent = content.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
       parsed = JSON.parse(cleanContent);
     } catch (parseError) {
-      console.error("Failed to parse AI response:", content);
+      console.error("Failed to parse AI response");
       // Fallback response
       parsed = {
         title: "Voice Memo",
-        summary: transcript.slice(0, 150) + (transcript.length > 150 ? "..." : ""),
+        summary: trimmedTranscript.slice(0, 150) + (trimmedTranscript.length > 150 ? "..." : ""),
         categories: ["Ideas"],
         tasks: [],
-        detected_language: language || "en-US",
+        detected_language: validLanguage || "en-US",
       };
     }
 
     // Determine final language
     const finalLanguage = isAutoDetect 
       ? (parsed.detected_language || "en-US")
-      : language;
+      : validLanguage;
 
     return new Response(
       JSON.stringify({
         title: parsed.title || "Voice Memo",
-        summary: parsed.summary || transcript.slice(0, 150),
+        summary: parsed.summary || trimmedTranscript.slice(0, 150),
         categories: parsed.categories || ["Ideas"],
         tasks: parsed.tasks || [],
-        transcript: transcript,
+        transcript: trimmedTranscript,
         language: finalLanguage,
         detected_language: parsed.detected_language,
       }),

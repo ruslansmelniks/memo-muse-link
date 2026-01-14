@@ -303,6 +303,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_notification: {
+        Args: {
+          p_actor_id: string
+          p_memo_id?: string
+          p_type: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
       increment_view_count: { Args: { memo_uuid: string }; Returns: undefined }
       toggle_memo_like: {
         Args: { p_memo_id: string; p_user_id: string }
