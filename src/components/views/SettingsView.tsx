@@ -4,6 +4,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { LanguageSelector } from "@/components/LanguageSelector";
 import { ProfileEditor } from "@/components/ProfileEditor";
+import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -102,14 +103,10 @@ export function SettingsView() {
   return (
     <div className="container mx-auto px-4 py-8 pb-36">
       {/* Header */}
-      <div className="mb-10 animate-fade-in">
-        <h2 className="font-display text-3xl font-bold text-foreground mb-3">
-          Settings
-        </h2>
-        <p className="text-muted-foreground">
-          Customize your Mindflow experience
-        </p>
-      </div>
+      <PageHeader 
+        title="Settings" 
+        subtitle="Customize your Mindflow experience"
+      />
 
       {/* Display Name Prompt */}
       {user && displayName === "User" && (

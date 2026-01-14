@@ -4,6 +4,7 @@ import { useDiscoverMemos, DiscoverFeed } from "@/hooks/useDiscoverMemos";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useHaptics } from "@/hooks/useHaptics";
 import { PullToRefreshIndicator } from "@/components/PullToRefresh";
+import { PageHeader } from "@/components/PageHeader";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Button } from "@/components/ui/button";
 import { DiscoverFeedCard } from "@/components/DiscoverFeedCard";
@@ -122,77 +123,71 @@ export function DiscoverView() {
       />
 
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl gradient-hero flex items-center justify-center">
-                <Compass className="h-5 w-5 text-white" />
-              </div>
-              <h2 className="font-display text-xl font-bold text-foreground">
-                Discover
-              </h2>
-            </div>
+      <div className="container mx-auto px-4 pt-8">
+        <div className="flex items-start justify-between">
+          <PageHeader 
+            title="Discover" 
+            subtitle="Explore ideas from the community"
+          />
+          
+          {/* Filter Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              haptics.selection();
+              setFilterSheetOpen(true);
+            }}
+            className={cn(
+              "h-10 w-10 rounded-xl relative flex-shrink-0",
+              activeFilterCount > 0 
+                ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                : "bg-muted/50 hover:bg-muted"
+            )}
+          >
+            <SlidersHorizontal className="h-5 w-5" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-xs font-bold flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </Button>
+        </div>
 
-            {/* Filter Button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                haptics.selection();
-                setFilterSheetOpen(true);
-              }}
-              className={cn(
-                "h-10 w-10 rounded-xl relative",
-                activeFilterCount > 0 
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-                  : "bg-muted/50 hover:bg-muted"
-              )}
-            >
-              <SlidersHorizontal className="h-5 w-5" />
-              {activeFilterCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-destructive-foreground text-xs font-bold flex items-center justify-center">
-                  {activeFilterCount}
-                </span>
-              )}
-            </Button>
-          </div>
-
-          {/* Feed Tabs */}
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
-            {FEED_TABS.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeFeed === tab.id;
-              const isDisabled = tab.id === "following" && !user;
-              
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => handleFeedChange(tab.id)}
-                  disabled={isDisabled}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
-                    isDisabled && "opacity-50 cursor-not-allowed"
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
+        {/* Feed Tabs */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none mb-6">
+          {FEED_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeFeed === tab.id;
+            const isDisabled = tab.id === "following" && !user;
+            
+            return (
+              <button
+                key={tab.id}
+                onClick={() => handleFeedChange(tab.id)}
+                disabled={isDisabled}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all",
+                  isActive
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground",
+                  isDisabled && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
       {/* Scrollable Feed */}
       <div 
         ref={scrollContainerRef}
-        className="h-[calc(100%-140px)] overflow-y-auto"
+        className="flex-1 overflow-y-auto"
       >
-        <div className="px-4 py-8 space-y-6">
+        <div className="container mx-auto px-4 pb-36 space-y-6">
           {/* Loading State - Skeleton Cards */}
           {loading && memos.length === 0 && (
             <>

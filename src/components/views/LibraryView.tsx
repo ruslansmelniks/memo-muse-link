@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { FolderOpen, Clock, Sparkles, GripVertical, Search, X, Bookmark, Tag } from "lucide-react";
+import { FolderOpen, Clock, Sparkles, GripVertical, Bookmark, Tag } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { LibraryStatsModals } from "@/components/LibraryStatsModals";
+import { PageHeader } from "@/components/PageHeader";
 import { MemoCard } from "@/components/MemoCard";
 import { SwipeableMemoCard } from "@/components/SwipeableMemoCard";
 import { FolderSidebar } from "@/components/FolderSidebar";
@@ -44,8 +45,11 @@ interface Memo {
   folderId?: string | null;
 }
 
+interface LibraryViewProps {
+  searchQuery?: string;
+}
 
-export function LibraryView() {
+export function LibraryView({ searchQuery = "" }: LibraryViewProps) {
   const [memos, setMemos] = useState<Memo[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +62,6 @@ export function LibraryView() {
   const [folderSummary, setFolderSummary] = useState<FolderSummary | null>(null);
   const [isSummarizing, setIsSummarizing] = useState(false);
   const [summarizingFolder, setSummarizingFolder] = useState<Folder | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [openStatsModal, setOpenStatsModal] = useState<"time" | "nuggets" | "topics" | null>(null);
   const { user } = useAuth();
@@ -434,6 +437,21 @@ export function LibraryView() {
         />
         {/* Tabs */}
         <Tabs defaultValue="my-memos" className="w-full">
+          {/* Header */}
+          <PageHeader 
+            title={selectedFolder ? selectedFolder.name : selectedFolderId === "unfiled" ? "Unfiled Memos" : "Your Library"} 
+            subtitle={selectedFolder || selectedFolderId === "unfiled" 
+              ? `${filteredMemos.length} memos`
+              : `${memos.length} memos · ${totalTasks} nuggets found`
+            }
+          >
+            {isDragging && (
+              <p className="text-sm text-primary mt-2 animate-fade-in">
+                Drop on a folder in the sidebar to move
+              </p>
+            )}
+          </PageHeader>
+
           <TabsList className="mb-8 bg-muted/50">
             <TabsTrigger value="my-memos" className="gap-2">
               <FolderOpen className="h-4 w-4" />
@@ -446,42 +464,6 @@ export function LibraryView() {
           </TabsList>
 
           <TabsContent value="my-memos" className="mt-0">
-            <div className="mb-8 animate-fade-in">
-              <h2 className="font-display text-3xl font-bold text-foreground mb-3">
-                {selectedFolder ? selectedFolder.name : selectedFolderId === "unfiled" ? "Unfiled Memos" : "Your Library"}
-              </h2>
-              <p className="text-muted-foreground">
-                {selectedFolder || selectedFolderId === "unfiled" 
-                  ? `${filteredMemos.length} memos`
-                  : `${memos.length} memos · ${totalTasks} nuggets found`
-                }
-              </p>
-              {isDragging && (
-                <p className="text-sm text-primary mt-2 animate-fade-in">
-                  Drop on a folder in the sidebar to move
-                </p>
-              )}
-            </div>
-
-        {/* Search Bar */}
-        <div className="relative mb-8 animate-fade-in" style={{ animationDelay: "100ms" }}>
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search memos by title or content..."
-            className="w-full pl-12 pr-10 py-3 rounded-2xl bg-muted border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          )}
-        </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Folder Sidebar with drop zones */}
