@@ -190,7 +190,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -20 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="fixed left-1/2 top-[20%] -translate-x-1/2 w-full max-w-xl z-50 px-4"
+            className="fixed inset-x-0 top-4 sm:top-[15%] sm:left-1/2 sm:-translate-x-1/2 sm:inset-x-auto w-full sm:max-w-xl z-50 px-3 sm:px-4"
           >
             <div className="bg-background border border-border rounded-2xl shadow-2xl overflow-hidden">
               {/* Search Input */}
@@ -218,7 +218,7 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
               </div>
 
               {/* Results */}
-              <div className="max-h-[60vh] overflow-y-auto">
+              <div className="max-h-[50vh] sm:max-h-[60vh] overflow-y-auto">
                 {loading && (
                   <div className="px-4 py-8 text-center text-muted-foreground">
                     <div className="inline-block w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
@@ -303,8 +303,8 @@ export function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
                 )}
               </div>
 
-              {/* Footer */}
-              <div className="px-4 py-3 border-t border-border bg-muted/30 flex items-center justify-between text-xs text-muted-foreground">
+              {/* Footer - hidden on mobile for more space */}
+              <div className="hidden sm:flex px-4 py-3 border-t border-border bg-muted/30 items-center justify-between text-xs text-muted-foreground">
                 <div className="flex items-center gap-4">
                   <span className="flex items-center gap-1">
                     <kbd className="h-5 px-1.5 rounded border border-border bg-background">↑</kbd>
