@@ -192,7 +192,7 @@ export function DiscoverView() {
         ref={scrollContainerRef}
         className="h-[calc(100%-140px)] overflow-y-auto"
       >
-        <div className="px-4 py-6 space-y-4">
+        <div className="px-4 py-8 space-y-6">
           {/* Loading State - Skeleton Cards */}
           {loading && memos.length === 0 && (
             <>
@@ -204,12 +204,12 @@ export function DiscoverView() {
 
           {/* Empty State */}
           {!loading && memos.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-16 px-8 text-center">
-              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
-                <Compass className="h-10 w-10 text-muted-foreground" />
+            <div className="flex flex-col items-center justify-center py-20 px-8 text-center">
+              <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6">
+                <Compass className="h-12 w-12 text-muted-foreground" />
               </div>
-              <h3 className="font-display font-semibold text-xl mb-2">No memos found</h3>
-              <p className="text-muted-foreground mb-6">
+              <h3 className="font-display font-semibold text-xl mb-3">No memos found</h3>
+              <p className="text-muted-foreground mb-8">
                 {activeFeed === "for-you" && !user
                   ? "Sign in to get personalized recommendations based on your interests."
                   : activeFeed === "following"

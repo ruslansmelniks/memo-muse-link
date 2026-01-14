@@ -397,9 +397,9 @@ export function RecordView() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-10 pb-32">
+    <div className="container mx-auto px-4 py-12 pb-36">
       {/* Voice Recorder */}
-      <div className="mb-8">
+      <div className="mb-12">
         <VoiceRecorder 
           onRecordingComplete={handleRecordingComplete} 
           onRecordingStateChange={setIsRecording}
@@ -411,10 +411,10 @@ export function RecordView() {
 
       {/* Auth prompt for non-logged in users */}
       {!user && (
-        <div className="bg-muted/50 rounded-2xl p-8 mb-10 text-center animate-fade-in border border-border/50">
-          <LogIn className="h-8 w-8 text-foreground/60 mx-auto mb-4" />
-          <h3 className="font-display font-semibold text-lg mb-2">Sign in to save your memos</h3>
-          <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+        <div className="bg-muted/50 rounded-2xl p-10 mb-14 text-center animate-fade-in border border-border/50">
+          <LogIn className="h-10 w-10 text-foreground/60 mx-auto mb-5" />
+          <h3 className="font-display font-semibold text-xl mb-3">Sign in to save your memos</h3>
+          <p className="text-sm text-muted-foreground mb-8 max-w-sm mx-auto">
             Create an account to save recordings, access AI summaries, and discover ideas from others.
           </p>
           <Button 
@@ -430,10 +430,10 @@ export function RecordView() {
       {/* Recent Memos */}
       {user && memos.length > 0 && (
         <div>
-          <h3 className="font-display font-semibold text-xl text-foreground mb-6">
+          <h3 className="font-display font-semibold text-xl text-foreground mb-8">
             Your Recent Memos
           </h3>
-          <div className="space-y-6">
+          <div className="space-y-8">
             {memos.map((memo, i) => (
               <div 
                 key={memo.id} 

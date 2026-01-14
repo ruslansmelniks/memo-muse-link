@@ -328,12 +328,12 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
         transition={{ duration: 0.3, ease: "easeOut" }}
         whileHover={{ y: -2 }}
         className={cn(
-          "bg-card rounded-2xl p-6 border border-border/50 transition-colors duration-200 hover:border-border",
+          "bg-card rounded-2xl p-7 border border-border/50 transition-colors duration-200 hover:border-border",
           variant === "compact" && "p-5"
         )}
       >
       {/* Header */}
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-5">
           <div className="flex items-center gap-3">
             {memo.author.avatar ? (
               <img 
