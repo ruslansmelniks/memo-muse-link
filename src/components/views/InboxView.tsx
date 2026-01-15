@@ -1,9 +1,10 @@
-import { useCallback, useRef, useEffect } from "react";
-import { Inbox, Users, User, RefreshCw } from "lucide-react";
+import { useCallback, useRef, useEffect, useState } from "react";
+import { Inbox, Users, User, RefreshCw, Mic } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { DiscoverFeedCard } from "@/components/DiscoverFeedCard";
 import { DiscoverCardSkeleton } from "@/components/DiscoverCardSkeleton";
 import { PullToRefreshIndicator } from "@/components/PullToRefresh";
+import { InboxRecordingSheet } from "@/components/InboxRecordingSheet";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useSharedWithMe, SharedMemo } from "@/hooks/useSharedWithMe";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +12,7 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { DiscoverMemo } from "@/hooks/useDiscoverMemos";
+import { motion } from "framer-motion";
 
 // Convert SharedMemo to DiscoverMemo format for the card
 function toDiscoverMemo(shared: SharedMemo): DiscoverMemo {
@@ -41,6 +43,10 @@ export function InboxView() {
   const { memos, loading, error, hasMore, loadMore, refresh } = useSharedWithMe({ limit: 20 });
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  
+  // Recording state
+  const [showRecordingSheet, setShowRecordingSheet] = useState(false);
+  const [replyingToMemo, setReplyingToMemo] = useState<SharedMemo | null>(null);
 
   const handleRefresh = useCallback(async () => {
     await refresh();
@@ -169,6 +175,8 @@ export function InboxView() {
                 <DiscoverFeedCard
                   memo={toDiscoverMemo(sharedMemo)}
                   index={index}
+                  showReplyButton={true}
+                  onReply={() => setReplyingToMemo(sharedMemo)}
                 />
               </div>
             ))}
@@ -184,6 +192,34 @@ export function InboxView() {
           </>
         )}
       </div>
+
+      {/* Floating Record Button */}
+      <motion.button
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setShowRecordingSheet(true)}
+        className="fixed bottom-24 right-6 w-14 h-14 rounded-full bg-primary shadow-lg flex items-center justify-center z-40"
+      >
+        <Mic className="h-6 w-6 text-primary-foreground" />
+      </motion.button>
+
+      {/* Recording Sheet */}
+      <InboxRecordingSheet
+        isOpen={showRecordingSheet || !!replyingToMemo}
+        onClose={() => {
+          setShowRecordingSheet(false);
+          setReplyingToMemo(null);
+        }}
+        replyTo={replyingToMemo ? {
+          id: replyingToMemo.id,
+          title: replyingToMemo.title,
+          author_id: replyingToMemo.user_id,
+          author_name: replyingToMemo.author?.display_name || replyingToMemo.author_name,
+        } : undefined}
+        onComplete={() => refresh()}
+      />
     </div>
   );
 }
