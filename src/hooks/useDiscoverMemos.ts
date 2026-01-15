@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserPreferences } from "./useUserPreferences";
 
-export type DiscoverFeed = "for-you" | "trending" | "recent" | "following";
+export type DiscoverFeed = "for-you" | "trending" | "recent" | "following" | "void";
 
 export type RecommendationReason = {
   type: "similar-topic" | "following" | "interest" | "trending" | "recent";
@@ -212,13 +212,20 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
             author_name,
             likes,
             view_count,
-            language
+            language,
+            visibility
           `
-          )
-          .eq("is_public", true);
+          );
 
         // Apply feed-specific filtering and ordering
-        if (feed === "for-you") {
+        if (feed === "void") {
+          // The Void: fetch memos with visibility='void' in random order
+          query = query
+            .eq("visibility", "void")
+            .order("created_at", { ascending: false })
+            .range(offset, offset + pageSize - 1);
+        } else if (feed === "for-you") {
+          query = query.eq("is_public", true);
           // Fetch a broader set for scoring
           if (user) {
             query = query.neq("user_id", user.id); // Exclude own memos
@@ -229,14 +236,17 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
             .limit(fetchSize);
         } else if (feed === "trending") {
           query = query
+            .eq("is_public", true)
             .order("likes", { ascending: false })
             .order("created_at", { ascending: false })
             .range(offset, offset + pageSize - 1);
         } else if (feed === "recent") {
           query = query
+            .eq("is_public", true)
             .order("created_at", { ascending: false })
             .range(offset, offset + pageSize - 1);
         } else if (feed === "following") {
+          query = query.eq("is_public", true);
           if (followingIdsForFeed.length === 0) {
             setMemos([]);
             setLoading(false);
@@ -248,6 +258,8 @@ export function useDiscoverMemos(options: UseDiscoverMemosOptions) {
             .in("user_id", followingIdsForFeed)
             .order("created_at", { ascending: false })
             .range(offset, offset + pageSize - 1);
+        } else {
+          query = query.eq("is_public", true);
         }
 
         // Apply additional category filter (supports multiple categories with OR logic)
