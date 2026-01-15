@@ -3,6 +3,7 @@ import { Header } from "@/components/Header";
 import { TabNavigation } from "@/components/TabNavigation";
 import { RecordView } from "@/components/views/RecordView";
 import { DiscoverView } from "@/components/views/DiscoverView";
+import { InboxView } from "@/components/views/InboxView";
 import { LibraryView } from "@/components/views/LibraryView";
 import { SettingsView } from "@/components/views/SettingsView";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -16,6 +17,8 @@ const Index = () => {
         return <RecordView />;
       case "discover":
         return <DiscoverView />;
+      case "inbox":
+        return <InboxView />;
       case "library":
         return <LibraryView />;
       case "settings":

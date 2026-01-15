@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Mic, Compass, FolderOpen, Settings } from "lucide-react";
+import { Mic, Compass, Inbox, FolderOpen, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHaptics } from "@/hooks/useHaptics";
 
@@ -11,7 +11,8 @@ interface TabNavigationProps {
 const tabs = [
   { id: "record", icon: Mic, label: "Record" },
   { id: "discover", icon: Compass, label: "Discover" },
-  { id: "library", icon: FolderOpen, label: "Library" },
+  { id: "inbox", icon: Inbox, label: "Inbox" },
+  { id: "library", icon: FolderOpen, label: "My Library" },
   { id: "settings", icon: Settings, label: "Settings" },
 ];
 
