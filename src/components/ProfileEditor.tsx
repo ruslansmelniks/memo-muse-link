@@ -18,6 +18,7 @@ interface Profile {
   display_name: string | null;
   avatar_url: string | null;
   bio: string | null;
+  username?: string | null;
 }
 
 interface ProfileEditorProps {
@@ -38,8 +39,11 @@ export function ProfileEditor({
   const [displayName, setDisplayName] = useState(currentProfile.display_name || "");
   const [avatarUrl, setAvatarUrl] = useState(currentProfile.avatar_url || "");
   const [bio, setBio] = useState(currentProfile.bio || "");
+  const [username, setUsername] = useState(currentProfile.username || "");
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,9 +92,61 @@ export function ProfileEditor({
     }
   };
 
+  const validateUsername = (value: string): string | null => {
+    if (!value) return null; // Empty is OK
+    if (value.length < 3) return "Username must be at least 3 characters";
+    if (value.length > 20) return "Username must be 20 characters or less";
+    if (!/^[a-z0-9_]+$/.test(value)) return "Only lowercase letters, numbers, and underscores";
+    return null;
+  };
+
+  const handleUsernameChange = async (value: string) => {
+    const lowercased = value.toLowerCase().replace(/[^a-z0-9_]/g, "");
+    setUsername(lowercased);
+    
+    const error = validateUsername(lowercased);
+    if (error) {
+      setUsernameError(error);
+      return;
+    }
+
+    if (lowercased === currentProfile.username) {
+      setUsernameError(null);
+      return;
+    }
+
+    // Check if username is taken
+    if (lowercased.length >= 3) {
+      setIsCheckingUsername(true);
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("user_id")
+          .eq("username", lowercased)
+          .neq("user_id", userId)
+          .maybeSingle();
+
+        if (data) {
+          setUsernameError("Username is already taken");
+        } else {
+          setUsernameError(null);
+        }
+      } catch {
+        // Ignore errors during check
+      } finally {
+        setIsCheckingUsername(false);
+      }
+    }
+  };
+
   const handleSave = async () => {
     if (!displayName.trim()) {
       toast.error("Display name is required");
+      return;
+    }
+
+    if (usernameError) {
+      toast.error(usernameError);
       return;
     }
 
@@ -102,6 +158,7 @@ export function ProfileEditor({
           display_name: displayName.trim(),
           avatar_url: avatarUrl || null,
           bio: bio.trim() || null,
+          username: username.trim() || null,
         })
         .eq("user_id", userId);
 
@@ -111,6 +168,7 @@ export function ProfileEditor({
         display_name: displayName.trim(),
         avatar_url: avatarUrl || null,
         bio: bio.trim() || null,
+        username: username.trim() || null,
       });
       toast.success("Profile updated");
       onClose();
@@ -184,6 +242,29 @@ export function ProfileEditor({
             )}
           </div>
 
+          {/* Username */}
+          <div className="space-y-2">
+            <Label htmlFor="username">Username</Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">@</span>
+              <Input
+                id="username"
+                value={username}
+                onChange={(e) => handleUsernameChange(e.target.value)}
+                placeholder="username"
+                maxLength={20}
+                className="pl-7"
+              />
+            </div>
+            {usernameError ? (
+              <p className="text-xs text-destructive">{usernameError}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Unique handle for others to find you (3-20 characters)
+              </p>
+            )}
+          </div>
+
           {/* Display Name */}
           <div className="space-y-2">
             <Label htmlFor="displayName">Display Name</Label>
@@ -222,7 +303,7 @@ export function ProfileEditor({
           <Button variant="outline" onClick={onClose} disabled={isSaving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={isSaving || isUploading}>
+          <Button onClick={handleSave} disabled={isSaving || isUploading || isCheckingUsername || !!usernameError}>
             {isSaving ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
