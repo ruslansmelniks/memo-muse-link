@@ -249,6 +249,7 @@ export type Database = {
           tasks: string[] | null
           title: string
           transcript: string
+          transcription_status: string | null
           updated_at: string
           user_id: string | null
           view_count: number
@@ -270,6 +271,7 @@ export type Database = {
           tasks?: string[] | null
           title: string
           transcript: string
+          transcription_status?: string | null
           updated_at?: string
           user_id?: string | null
           view_count?: number
@@ -291,6 +293,7 @@ export type Database = {
           tasks?: string[] | null
           title?: string
           transcript?: string
+          transcription_status?: string | null
           updated_at?: string
           user_id?: string | null
           view_count?: number

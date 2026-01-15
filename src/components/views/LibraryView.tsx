@@ -28,6 +28,8 @@ interface FolderSummary {
   connections: string;
 }
 
+type TranscriptionStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
 interface Memo {
   id: string;
   title: string;
@@ -44,6 +46,7 @@ interface Memo {
   likes: number;
   comments: number;
   folderId?: string | null;
+  transcriptionStatus?: TranscriptionStatus;
 }
 
 export function LibraryView() {
@@ -76,6 +79,36 @@ export function LibraryView() {
   useEffect(() => {
     if (user) {
       loadData();
+      
+      // Subscribe to realtime updates for transcription status
+      const channel = supabase
+        .channel('memo-updates')
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'memos',
+          filter: `user_id=eq.${user.id}`,
+        }, (payload) => {
+          const updated = payload.new as any;
+          setMemos(prev => prev.map(m => 
+            m.id === updated.id ? {
+              ...m,
+              title: updated.title,
+              transcript: updated.transcript,
+              summary: updated.summary,
+              categories: updated.categories || [],
+              tasks: updated.tasks || [],
+              transcriptionStatus: updated.transcription_status as TranscriptionStatus,
+            } : m
+          ));
+          
+          if (updated.transcription_status === 'completed' && payload.old?.transcription_status === 'processing') {
+            toast.success("Transcription complete!", { description: updated.title });
+          }
+        })
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
     } else {
       setMemos([]);
       setFolders([]);
@@ -115,6 +148,7 @@ export function LibraryView() {
         likes: m.likes,
         comments: 0,
         folderId: m.folder_id,
+        transcriptionStatus: (m.transcription_status as TranscriptionStatus) || 'completed',
       })));
     }
   };

@@ -35,12 +35,10 @@ interface InboxRecordingSheetProps {
 }
 
 const PROCESSING_STEPS = [
-  { key: "transcribing", label: "Transcribing audio", icon: Mic },
-  { key: "analyzing", label: "AI summarizing", icon: Brain },
   { key: "saving", label: "Saving memo", icon: FileText },
 ] as const;
 
-type ProcessingStep = "transcribing" | "analyzing" | "saving";
+type ProcessingStep = "saving";
 
 export function InboxRecordingSheet({ 
   isOpen, 
@@ -55,7 +53,7 @@ export function InboxRecordingSheet({
   const [shareRecipients, setShareRecipients] = useState<ShareRecipient[]>([]);
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [isSavingFolder, setIsSavingFolder] = useState(false);
-  const [processingStep, setProcessingStep] = useState<ProcessingStep>("transcribing");
+  const [processingStep, setProcessingStep] = useState<ProcessingStep>("saving");
   
   // Recording state
   const [currentTranscript, setCurrentTranscript] = useState("");
@@ -126,13 +124,11 @@ export function InboxRecordingSheet({
     }
     
     setStep("processing");
-    setProcessingStep("transcribing");
+    setProcessingStep("saving");
     
     try {
-      // Upload audio file if available
+      // Upload audio file first (this is quick)
       let audioUrl: string | null = null;
-      let transcriptToProcess = currentTranscript;
-      let detectedLanguage = currentLanguage;
       
       if (currentAudioBlob) {
         const fileName = `${user.id}/memo-${Date.now()}.webm`;
@@ -144,70 +140,33 @@ export function InboxRecordingSheet({
 
         if (uploadError) {
           console.error("Audio upload error:", uploadError);
+          throw new Error("Failed to upload audio");
         } else if (uploadData) {
           const { data: urlData } = supabase.storage
             .from("audio-memos")
             .getPublicUrl(uploadData.path);
           audioUrl = urlData.publicUrl;
         }
-        
-        // Use ElevenLabs for higher-accuracy transcription
-        try {
-          const formData = new FormData();
-          formData.append("audio", currentAudioBlob, "recording.webm");
-          formData.append("language", currentLanguage);
-          
-          const transcribeResponse = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/elevenlabs-transcribe`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              },
-              body: formData,
-            }
-          );
-          
-          if (transcribeResponse.ok) {
-            const transcription = await transcribeResponse.json();
-            if (transcription.text && transcription.text.trim()) {
-              transcriptToProcess = transcription.text;
-              detectedLanguage = transcription.language || currentLanguage;
-            }
-          }
-        } catch (transcribeError) {
-          console.warn("ElevenLabs transcription error:", transcribeError);
-        }
       }
 
-      // Step 2: AI Analysis
-      setProcessingStep("analyzing");
-
-      const { data: result, error } = await supabase.functions.invoke("process-memo", {
-        body: { transcript: transcriptToProcess, language: detectedLanguage },
-      });
-
-      if (error) throw error;
-
-      // Step 3: Save to database
-      setProcessingStep("saving");
-      
+      // Save memo immediately with pending status
       const { data: savedMemo, error: dbError } = await supabase
         .from("memos")
         .insert({
           user_id: user.id,
-          title: title.trim() || result.title || "Voice Memo",
-          transcript: result.transcript || transcriptToProcess,
-          summary: result.summary || transcriptToProcess.slice(0, 150),
-          categories: result.categories || ["Ideas"],
-          tasks: result.tasks || [],
+          title: title.trim() || "Voice Memo",
+          transcript: currentTranscript || "Transcription in progress...",
+          summary: "AI is analyzing your memo...",
+          categories: ["Processing"],
+          tasks: [],
           is_public: visibility === 'followers' || visibility === 'void',
           visibility: visibility,
           audio_url: audioUrl,
           duration: currentDuration,
           author_name: getDisplayName(),
-          language: result.language || detectedLanguage,
+          language: currentLanguage,
           folder_id: selectedFolderId || null,
+          transcription_status: audioUrl ? 'pending' : 'completed',
         })
         .select()
         .single();
@@ -226,16 +185,33 @@ export function InboxRecordingSheet({
         await supabase.from('memo_shares').insert(shareEntries);
       }
 
-      toast.success(replyTo ? "Reply sent!" : "Memo saved!", {
-        description: `AI found ${result.tasks?.length || 0} nuggets and categorized as ${result.categories?.join(", ") || "Ideas"}.`,
-      });
+      // Trigger background transcription (fire and forget)
+      if (audioUrl) {
+        supabase.functions.invoke("background-transcribe", {
+          body: { 
+            memo_id: savedMemo.id, 
+            audio_url: audioUrl, 
+            language: currentLanguage 
+          },
+        }).then(() => {
+          console.log("Background transcription triggered");
+        }).catch((err) => {
+          console.error("Failed to trigger background transcription:", err);
+        });
+        
+        toast.success(replyTo ? "Reply sent!" : "Memo saved!", {
+          description: "AI transcription in progress (may take up to 5 min).",
+        });
+      } else {
+        toast.success(replyTo ? "Reply sent!" : "Memo saved!");
+      }
       
       onComplete?.();
       onClose();
     } catch (error) {
-      console.error("Processing error:", error);
-      toast.error("Processing failed", {
-        description: "Could not process memo. Please try again.",
+      console.error("Save error:", error);
+      toast.error("Save failed", {
+        description: "Could not save memo. Please try again.",
       });
       setStep("details");
     }
@@ -421,9 +397,7 @@ export function InboxRecordingSheet({
                             </p>
                             {isActive && (
                               <p className="text-xs text-muted-foreground animate-pulse">
-                                {s.key === "transcribing" && "Using ElevenLabs AI..."}
-                                {s.key === "analyzing" && "Extracting insights..."}
-                                {s.key === "saving" && "Almost done..."}
+                                {s.key === "saving" && "Saving your memo..."}
                               </p>
                             )}
                           </div>

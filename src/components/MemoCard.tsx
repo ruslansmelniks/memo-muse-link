@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Heart, MessageCircle, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy, Pencil, Check, X, FolderInput, Folder as FolderIcon, Plus, Share2 } from "lucide-react";
+import { Heart, MessageCircle, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy, Pencil, Check, X, FolderInput, Folder as FolderIcon, Plus, Share2, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ShareButton } from "@/components/ShareButton";
 import { AudioWaveform } from "@/components/AudioWaveform";
@@ -52,6 +52,8 @@ import {
   Inbox
 } from "lucide-react";
 
+type TranscriptionStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
 interface MemoCardProps {
   memo: {
     id: string;
@@ -73,6 +75,7 @@ interface MemoCardProps {
     comments: number;
     language?: string | null;
     folderId?: string | null;
+    transcriptionStatus?: TranscriptionStatus;
   };
   variant?: "default" | "compact";
   onDelete?: (id: string) => void;
@@ -80,6 +83,7 @@ interface MemoCardProps {
   onMoveToFolder?: (memoId: string, folderId: string | null) => void;
   onUpdateVisibility?: (memoId: string, visibility: MemoVisibility, recipients?: ShareRecipient[]) => Promise<void>;
   onCreateFolder?: () => void;
+  onRetryTranscription?: (memoId: string) => void;
   folders?: Folder[];
   canDelete?: boolean;
 }
@@ -116,7 +120,7 @@ const iconComponents: Record<FolderIconType, React.ElementType> = {
   coffee: Coffee,
 };
 
-export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, onMoveToFolder, onUpdateVisibility, onCreateFolder, folders = [], canDelete = false }: MemoCardProps) {
+export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, onMoveToFolder, onUpdateVisibility, onCreateFolder, onRetryTranscription, folders = [], canDelete = false }: MemoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(memo.duration);
@@ -498,6 +502,27 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
         ) : (
           <h3 className="font-display font-semibold text-foreground mb-4">{memo.title}</h3>
         )}
+
+        {/* Transcription Status Indicator */}
+        {memo.transcriptionStatus === 'pending' || memo.transcriptionStatus === 'processing' ? (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4 p-3 rounded-lg bg-primary/5 border border-primary/10">
+            <Loader2 className="h-3 w-3 animate-spin text-primary" />
+            <span>AI is transcribing your memo (may take up to 5 min)...</span>
+          </div>
+        ) : memo.transcriptionStatus === 'failed' ? (
+          <div className="flex items-center justify-between text-xs mb-4 p-3 rounded-lg bg-destructive/5 border border-destructive/10">
+            <span className="text-destructive">Transcription failed</span>
+            {onRetryTranscription && (
+              <button 
+                onClick={() => onRetryTranscription(memo.id)}
+                className="flex items-center gap-1 text-primary hover:underline"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Retry
+              </button>
+            )}
+          </div>
+        ) : null}
 
         {/* Audio Player with Waveform */}
         {memo.audioUrl && (
