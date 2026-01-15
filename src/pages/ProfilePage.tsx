@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, Users, Play, Pause, Heart, Eye, Loader2 } from "lucide-react";
+import { ArrowLeft, Users, Play, Pause, Heart, Eye, Loader2, Share2, Copy, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,7 @@ import { toast } from "sonner";
 interface AuthorProfile {
   userId: string;
   displayName: string;
+  username: string | null;
   avatarUrl: string | null;
   bio: string | null;
 }
@@ -43,6 +44,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -50,43 +52,54 @@ export default function ProfilePage() {
     async function loadProfile() {
       setLoading(true);
 
+      // Check if userId is a username (starts with @) or a UUID
+      const isUsername = userId.startsWith("@");
+      const lookupValue = isUsername ? userId.slice(1) : userId;
+
       // Load profile
-      const { data: profileData } = await supabase
+      let profileQuery = supabase
         .from("profiles")
-        .select("user_id, display_name, avatar_url, bio")
-        .eq("user_id", userId)
-        .maybeSingle();
+        .select("user_id, display_name, username, avatar_url, bio");
+
+      if (isUsername) {
+        profileQuery = profileQuery.eq("username", lookupValue);
+      } else {
+        profileQuery = profileQuery.eq("user_id", lookupValue);
+      }
+
+      const { data: profileData } = await profileQuery.maybeSingle();
 
       if (profileData) {
         setProfile({
           userId: profileData.user_id,
           displayName: profileData.display_name || "Anonymous",
+          username: profileData.username,
           avatarUrl: profileData.avatar_url,
           bio: profileData.bio,
         });
-      }
 
-      // Load public memos
-      const { data: memosData } = await supabase
-        .from("memos")
-        .select("id, title, audio_url, transcript, summary, categories, created_at, duration, likes, view_count")
-        .eq("user_id", userId)
-        .eq("is_public", true)
-        .order("created_at", { ascending: false });
+        // Load public memos using the resolved user_id
+        const { data: memosData } = await supabase
+          .from("memos")
+          .select("id, title, audio_url, transcript, summary, categories, created_at, duration, likes, view_count")
+          .eq("user_id", profileData.user_id)
+          .eq("is_public", true)
+          .order("created_at", { ascending: false });
 
-      if (memosData) {
-        setMemos(memosData.map(m => ({
-          id: m.id,
-          title: m.title,
-          audioUrl: m.audio_url,
-          transcript: m.transcript,
-          summary: m.summary,
-          categories: m.categories || [],
-          createdAt: new Date(m.created_at),
-          duration: m.duration,
-          likes: m.likes,
-          viewCount: m.view_count,
-        })));
+        if (memosData) {
+          setMemos(memosData.map(m => ({
+            id: m.id,
+            title: m.title,
+            audioUrl: m.audio_url,
+            transcript: m.transcript,
+            summary: m.summary,
+            categories: m.categories || [],
+            createdAt: new Date(m.created_at),
+            duration: m.duration,
+            likes: m.likes,
+            viewCount: m.view_count,
+          })));
+        }
       }
 
       setLoading(false);
@@ -97,36 +110,66 @@ export default function ProfilePage() {
 
   // Load follower/following counts
   useEffect(() => {
-    if (!userId) return;
+    if (!profile?.userId) return;
 
     async function loadCounts() {
       const [followers, following] = await Promise.all([
-        getFollowerCount(userId),
-        getFollowingCount(userId),
+        getFollowerCount(profile!.userId),
+        getFollowingCount(profile!.userId),
       ]);
       setFollowerCount(followers);
       setFollowingCount(following);
     }
 
     loadCounts();
-  }, [userId, getFollowerCount, getFollowingCount]);
+  }, [profile?.userId, getFollowerCount, getFollowingCount]);
 
   const handleFollow = async () => {
     if (!user) {
       toast.error("Sign in to follow creators");
       return;
     }
-    if (!userId) return;
+    if (!profile?.userId) return;
 
-    const success = await toggleFollow(userId);
+    const wasFollowing = isFollowing(profile.userId);
+    const success = await toggleFollow(profile.userId);
     if (success) {
-      setFollowerCount(prev => isFollowing(userId) ? prev - 1 : prev + 1);
-      toast.success(isFollowing(userId) ? "Unfollowed" : "Following");
+      setFollowerCount(prev => wasFollowing ? prev - 1 : prev + 1);
+      toast.success(wasFollowing ? "Unfollowed" : "Following");
     }
   };
 
-  const isOwnProfile = user?.id === userId;
-  const userIsFollowing = userId ? isFollowing(userId) : false;
+  const handleShareProfile = async () => {
+    const profilePath = profile?.username 
+      ? `/profile/@${profile.username}` 
+      : `/profile/${profile?.userId}`;
+    const profileUrl = `${window.location.origin}${profilePath}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: profile?.displayName || "Profile",
+          text: `Check out ${profile?.displayName}'s profile on MemoMuse`,
+          url: profileUrl,
+        });
+        return;
+      } catch (err) {
+        if ((err as Error).name === "AbortError") return;
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(profileUrl);
+      setLinkCopied(true);
+      toast.success("Profile link copied");
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      toast.error("Failed to copy link");
+    }
+  };
+
+  const isOwnProfile = user?.id === profile?.userId;
+  const userIsFollowing = profile?.userId ? isFollowing(profile.userId) : false;
 
   if (loading) {
     return (
@@ -175,7 +218,11 @@ export default function ProfilePage() {
             </div>
           )}
           
-          <h2 className="font-display text-2xl font-bold mb-2">{profile.displayName}</h2>
+          <h2 className="font-display text-2xl font-bold mb-1">{profile.displayName}</h2>
+          
+          {profile.username && (
+            <p className="text-muted-foreground text-sm mb-2">@{profile.username}</p>
+          )}
           
           {profile.bio && (
             <p className="text-muted-foreground text-sm max-w-md mb-4">{profile.bio}</p>
@@ -193,15 +240,29 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {!isOwnProfile && (
+          <div className="flex items-center gap-3">
+            {!isOwnProfile && (
+              <Button
+                variant={userIsFollowing ? "outline" : "default"}
+                onClick={handleFollow}
+                disabled={followLoading}
+              >
+                {userIsFollowing ? "Following" : "Follow"}
+              </Button>
+            )}
+            
             <Button
-              variant={userIsFollowing ? "outline" : "default"}
-              onClick={handleFollow}
-              disabled={followLoading}
+              variant="outline"
+              size="icon"
+              onClick={handleShareProfile}
             >
-              {userIsFollowing ? "Following" : "Follow"}
+              {linkCopied ? (
+                <Check className="h-4 w-4" />
+              ) : (
+                <Share2 className="h-4 w-4" />
+              )}
             </Button>
-          )}
+          </div>
         </div>
 
         {/* Memos */}

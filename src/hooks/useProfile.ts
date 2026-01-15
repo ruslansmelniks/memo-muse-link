@@ -7,6 +7,7 @@ interface Profile {
   avatar_url: string | null;
   bio: string | null;
   preferred_language: string;
+  username: string | null;
 }
 
 export function useProfile() {
@@ -23,7 +24,7 @@ export function useProfile() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("display_name, avatar_url, bio, preferred_language")
+      .select("display_name, avatar_url, bio, preferred_language, username")
       .eq("user_id", user.id)
       .maybeSingle();
 

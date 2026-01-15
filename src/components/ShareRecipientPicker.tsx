@@ -19,6 +19,7 @@ interface ShareRecipientPickerProps {
 interface SearchedUser {
   user_id: string;
   display_name: string | null;
+  username: string | null;
   avatar_url: string | null;
 }
 
@@ -39,12 +40,24 @@ export function ShareRecipientPicker({ selectedRecipients, onChange }: ShareReci
 
       setSearching(true);
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('profiles')
-          .select('user_id, display_name, avatar_url')
-          .ilike('display_name', `%${searchQuery}%`)
+          .select('user_id, display_name, username, avatar_url')
           .neq('user_id', user?.id || '')
           .limit(10);
+
+        // If searching with @, search by exact username
+        if (searchQuery.startsWith('@')) {
+          const username = searchQuery.slice(1).toLowerCase();
+          if (username.length > 0) {
+            query = query.eq('username', username);
+          }
+        } else {
+          // Search by display_name or username
+          query = query.or(`display_name.ilike.%${searchQuery}%,username.ilike.%${searchQuery}%`);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
         setSearchResults(data || []);
@@ -111,7 +124,7 @@ export function ShareRecipientPicker({ selectedRecipients, onChange }: ShareReci
         <Input
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search people..."
+          placeholder="Search by @username or name..."
           className="pl-9"
         />
       </div>
@@ -201,6 +214,11 @@ export function ShareRecipientPicker({ selectedRecipients, onChange }: ShareReci
                         <p className="font-medium text-sm truncate">
                           {profile.display_name || 'User'}
                         </p>
+                        {profile.username && (
+                          <p className="text-xs text-muted-foreground">
+                            @{profile.username}
+                          </p>
+                        )}
                       </div>
                       {selected && (
                         <Check className="h-4 w-4 text-primary" />

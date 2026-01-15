@@ -1,10 +1,14 @@
 import { useCallback, useRef, useEffect, useState } from "react";
-import { Inbox, Users, User, RefreshCw, Mic } from "lucide-react";
+import { Inbox, Users, User, RefreshCw, Mic, UserPlus } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { DiscoverFeedCard } from "@/components/DiscoverFeedCard";
 import { DiscoverCardSkeleton } from "@/components/DiscoverCardSkeleton";
 import { PullToRefreshIndicator } from "@/components/PullToRefresh";
 import { InboxRecordingSheet } from "@/components/InboxRecordingSheet";
+import { AddContactSheet } from "@/components/AddContactSheet";
+import { ContactsList } from "@/components/ContactsList";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { useSharedWithMe, SharedMemo } from "@/hooks/useSharedWithMe";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +42,13 @@ function toDiscoverMemo(shared: SharedMemo): DiscoverMemo {
   };
 }
 
+interface Contact {
+  user_id: string;
+  display_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+}
+
 export function InboxView() {
   const { user } = useAuth();
   const { memos, loading, error, hasMore, loadMore, refresh } = useSharedWithMe({ limit: 20 });
@@ -47,6 +58,10 @@ export function InboxView() {
   // Recording state
   const [showRecordingSheet, setShowRecordingSheet] = useState(false);
   const [replyingToMemo, setReplyingToMemo] = useState<SharedMemo | null>(null);
+  const [sendingToContact, setSendingToContact] = useState<Contact | null>(null);
+  
+  // Add contact sheet
+  const [showAddContact, setShowAddContact] = useState(false);
 
   const handleRefresh = useCallback(async () => {
     await refresh();
@@ -76,6 +91,11 @@ export function InboxView() {
     return () => observerRef.current?.disconnect();
   }, [loading, hasMore, loadMore]);
 
+  const handleSendMemoToContact = (contact: Contact) => {
+    setSendingToContact(contact);
+    setShowRecordingSheet(true);
+  };
+
   if (!user) {
     return (
       <div className="container mx-auto px-4 py-6 pb-32">
@@ -104,94 +124,124 @@ export function InboxView() {
         shouldRefresh={shouldRefresh}
       />
 
-      <PageHeader 
-        title="Inbox" 
-        subtitle="Memos shared with you"
-      />
-
-      {/* Content */}
-      <div className="space-y-4">
-        {loading && memos.length === 0 ? (
-          // Initial loading state
-          Array.from({ length: 3 }).map((_, i) => (
-            <DiscoverCardSkeleton key={i} />
-          ))
-        ) : error ? (
-          // Error state
-          <div className="text-center py-12">
-            <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
-              <Inbox className="h-6 w-6 text-destructive" />
-            </div>
-            <h3 className="font-semibold text-lg mb-2">Something went wrong</h3>
-            <p className="text-muted-foreground mb-4">{error.message}</p>
-            <button 
-              onClick={handleRefresh}
-              className="inline-flex items-center gap-2 text-primary hover:underline"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Try again
-            </button>
-          </div>
-        ) : memos.length === 0 ? (
-          // Empty state
-          <div className="text-center py-12">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-              <Inbox className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="font-display font-semibold text-lg mb-2">No memos yet</h3>
-            <p className="text-muted-foreground max-w-sm mx-auto">
-              When someone shares a memo with you directly or through a group, it will appear here.
-            </p>
-          </div>
-        ) : (
-          // Memo list
-          <>
-            {memos.map((sharedMemo, index) => (
-              <div key={sharedMemo.id} className="animate-fade-in">
-                {/* Share info header */}
-                <div className="flex items-center gap-2 mb-2 px-1">
-                  <div className={cn(
-                    "w-6 h-6 rounded-full flex items-center justify-center",
-                    sharedMemo.shared_via === 'group' ? "bg-primary/10" : "bg-muted"
-                  )}>
-                    {sharedMemo.shared_via === 'group' ? (
-                      <Users className="h-3 w-3 text-primary" />
-                    ) : (
-                      <User className="h-3 w-3 text-muted-foreground" />
-                    )}
-                  </div>
-                  <span className="text-sm text-muted-foreground">
-                    {sharedMemo.shared_via === 'group' ? (
-                      <>Shared in <span className="font-medium text-foreground">{sharedMemo.group_name}</span></>
-                    ) : (
-                      <>Shared by <span className="font-medium text-foreground">{sharedMemo.author?.display_name || sharedMemo.author_name}</span></>
-                    )}
-                    {" · "}
-                    {formatDistanceToNow(new Date(sharedMemo.shared_at), { addSuffix: true })}
-                  </span>
-                </div>
-
-                {/* Memo card */}
-                <DiscoverFeedCard
-                  memo={toDiscoverMemo(sharedMemo)}
-                  index={index}
-                  showReplyButton={true}
-                  onReply={() => setReplyingToMemo(sharedMemo)}
-                />
-              </div>
-            ))}
-
-            {/* Load more trigger */}
-            <div ref={loadMoreRef} className="py-4">
-              {loading && (
-                <div className="flex justify-center">
-                  <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              )}
-            </div>
-          </>
-        )}
+      <div className="flex items-center justify-between mb-6">
+        <PageHeader 
+          title="Inbox" 
+          subtitle="Messages & contacts"
+        />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setShowAddContact(true)}
+          className="flex items-center gap-2"
+        >
+          <UserPlus className="h-4 w-4" />
+          Add Contact
+        </Button>
       </div>
+
+      <Tabs defaultValue="messages" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsTrigger value="messages" className="flex items-center gap-2">
+            <Inbox className="h-4 w-4" />
+            Messages
+          </TabsTrigger>
+          <TabsTrigger value="contacts" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Contacts
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="messages">
+          {/* Content */}
+          <div className="space-y-4">
+            {loading && memos.length === 0 ? (
+              // Initial loading state
+              Array.from({ length: 3 }).map((_, i) => (
+                <DiscoverCardSkeleton key={i} />
+              ))
+            ) : error ? (
+              // Error state
+              <div className="text-center py-12">
+                <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+                  <Inbox className="h-6 w-6 text-destructive" />
+                </div>
+                <h3 className="font-semibold text-lg mb-2">Something went wrong</h3>
+                <p className="text-muted-foreground mb-4">{error.message}</p>
+                <button 
+                  onClick={handleRefresh}
+                  className="inline-flex items-center gap-2 text-primary hover:underline"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Try again
+                </button>
+              </div>
+            ) : memos.length === 0 ? (
+              // Empty state
+              <div className="text-center py-12">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                  <Inbox className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="font-display font-semibold text-lg mb-2">No messages yet</h3>
+                <p className="text-muted-foreground max-w-sm mx-auto">
+                  When someone shares a memo with you directly or through a group, it will appear here.
+                </p>
+              </div>
+            ) : (
+              // Memo list
+              <>
+                {memos.map((sharedMemo, index) => (
+                  <div key={sharedMemo.id} className="animate-fade-in">
+                    {/* Share info header */}
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                      <div className={cn(
+                        "w-6 h-6 rounded-full flex items-center justify-center",
+                        sharedMemo.shared_via === 'group' ? "bg-primary/10" : "bg-muted"
+                      )}>
+                        {sharedMemo.shared_via === 'group' ? (
+                          <Users className="h-3 w-3 text-primary" />
+                        ) : (
+                          <User className="h-3 w-3 text-muted-foreground" />
+                        )}
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {sharedMemo.shared_via === 'group' ? (
+                          <>Shared in <span className="font-medium text-foreground">{sharedMemo.group_name}</span></>
+                        ) : (
+                          <>Shared by <span className="font-medium text-foreground">{sharedMemo.author?.display_name || sharedMemo.author_name}</span></>
+                        )}
+                        {" · "}
+                        {formatDistanceToNow(new Date(sharedMemo.shared_at), { addSuffix: true })}
+                      </span>
+                    </div>
+
+                    {/* Memo card */}
+                    <DiscoverFeedCard
+                      memo={toDiscoverMemo(sharedMemo)}
+                      index={index}
+                      showReplyButton={true}
+                      onReply={() => setReplyingToMemo(sharedMemo)}
+                    />
+                  </div>
+                ))}
+
+                {/* Load more trigger */}
+                <div ref={loadMoreRef} className="py-4">
+                  {loading && (
+                    <div className="flex justify-center">
+                      <RefreshCw className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="contacts">
+          <ContactsList onSendMemo={handleSendMemoToContact} />
+        </TabsContent>
+      </Tabs>
 
       {/* Floating Record Button */}
       <motion.button
@@ -211,14 +261,26 @@ export function InboxView() {
         onClose={() => {
           setShowRecordingSheet(false);
           setReplyingToMemo(null);
+          setSendingToContact(null);
         }}
         replyTo={replyingToMemo ? {
           id: replyingToMemo.id,
           title: replyingToMemo.title,
           author_id: replyingToMemo.user_id,
           author_name: replyingToMemo.author?.display_name || replyingToMemo.author_name,
+        } : sendingToContact ? {
+          id: "",
+          title: "",
+          author_id: sendingToContact.user_id,
+          author_name: sendingToContact.display_name || "User",
         } : undefined}
         onComplete={() => refresh()}
+      />
+
+      {/* Add Contact Sheet */}
+      <AddContactSheet
+        isOpen={showAddContact}
+        onClose={() => setShowAddContact(false)}
       />
     </div>
   );
