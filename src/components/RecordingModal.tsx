@@ -1,19 +1,26 @@
 import { useState, useEffect } from "react";
-import { X, Globe, Lock, Sparkles, Loader2, Mic, Brain, FileText } from "lucide-react";
+import { X, Sparkles, Loader2, Mic, Brain, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { FolderSelector } from "@/components/FolderSelector";
 import { FolderModal } from "@/components/FolderModal";
+import { VisibilitySelector } from "@/components/VisibilitySelector";
+import { ShareRecipientPicker } from "@/components/ShareRecipientPicker";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { MemoVisibility, ShareRecipient } from "@/hooks/useMemoSharing";
 
 interface RecordingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { title: string; isPublic: boolean; folderId: string | null }) => void;
+  onSave: (data: { 
+    title: string; 
+    visibility: MemoVisibility; 
+    folderId: string | null;
+    recipients?: ShareRecipient[];
+  }) => void;
   isProcessing?: boolean;
   processingStep?: "transcribing" | "analyzing" | "saving";
   transcript?: string;
@@ -34,8 +41,9 @@ export function RecordingModal({
   transcript 
 }: RecordingModalProps) {
   const [title, setTitle] = useState("");
-  const [isPublic, setIsPublic] = useState(false);
+  const [visibility, setVisibility] = useState<MemoVisibility>("private");
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [shareRecipients, setShareRecipients] = useState<ShareRecipient[]>([]);
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [isSavingFolder, setIsSavingFolder] = useState(false);
   const { user } = useAuth();
@@ -44,17 +52,30 @@ export function RecordingModal({
   useEffect(() => {
     if (isOpen) {
       setTitle("");
-      setIsPublic(false);
+      setVisibility("private");
+      setShareRecipients([]);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleSave = () => {
-    onSave({ title: title.trim(), isPublic, folderId: selectedFolderId });
+    // Validate shared visibility has recipients
+    if (visibility === "shared" && shareRecipients.length === 0) {
+      toast.error("Please select at least one person or group to share with");
+      return;
+    }
+    
+    onSave({ 
+      title: title.trim(), 
+      visibility, 
+      folderId: selectedFolderId,
+      recipients: visibility === "shared" ? shareRecipients : undefined,
+    });
     setTitle("");
-    setIsPublic(false);
+    setVisibility("private");
     setSelectedFolderId(null);
+    setShareRecipients([]);
   };
 
   const handleCreateFolder = async (data: { 
@@ -207,26 +228,34 @@ export function RecordingModal({
                   />
                 </div>
 
-                <div className="flex items-center justify-between p-4 rounded-xl bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    {isPublic ? (
-                      <Globe className="h-5 w-5 text-primary" />
-                    ) : (
-                      <Lock className="h-5 w-5 text-muted-foreground" />
-                    )}
-                    <div>
-                      <p className="font-medium text-foreground">
-                        {isPublic ? "Public" : "Private"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {isPublic 
-                          ? "Others can discover and discuss" 
-                          : "Only visible to you"}
-                      </p>
-                    </div>
+                {/* Visibility Selector */}
+                <VisibilitySelector 
+                  value={visibility} 
+                  onChange={setVisibility} 
+                />
+
+                {/* Share Recipients Picker - shown only when visibility is 'shared' */}
+                {visibility === "shared" && (
+                  <div className="p-4 rounded-xl bg-muted/30 border border-border">
+                    <Label className="text-sm font-medium text-foreground mb-3 block">
+                      Share with
+                    </Label>
+                    <ShareRecipientPicker
+                      selectedRecipients={shareRecipients}
+                      onChange={setShareRecipients}
+                    />
                   </div>
-                  <Switch checked={isPublic} onCheckedChange={setIsPublic} />
-                </div>
+                )}
+
+                {/* Void explainer */}
+                {visibility === "void" && (
+                  <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
+                    <p className="text-sm text-purple-700 dark:text-purple-300">
+                      ✨ Your memo will float into the universe for random listeners to discover. 
+                      You'll see how many people found it, but not who.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 flex gap-3">

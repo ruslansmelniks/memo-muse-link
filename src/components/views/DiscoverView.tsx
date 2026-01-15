@@ -15,11 +15,14 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
-const FEED_TABS: { id: DiscoverFeed; label: string; icon: React.ElementType }[] = [
+import { Sparkles as VoidIcon } from "lucide-react";
+
+const FEED_TABS: { id: DiscoverFeed | 'void' | 'shared-with-me'; label: string; icon: React.ElementType }[] = [
   { id: "for-you", label: "For You", icon: Sparkles },
   { id: "trending", label: "Trending", icon: TrendingUp },
   { id: "recent", label: "Recent", icon: Clock },
   { id: "following", label: "Following", icon: Users },
+  { id: "void", label: "The Void", icon: VoidIcon },
 ];
 
 export function DiscoverView() {
