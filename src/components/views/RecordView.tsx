@@ -146,7 +146,7 @@ export function RecordView() {
     }
   };
 
-  const handleSave = async (data: { title: string; isPublic: boolean; folderId?: string | null }) => {
+  const handleSave = async (data: { title: string; visibility: 'private' | 'shared' | 'followers' | 'void'; folderId: string | null; recipients?: Array<{ type: 'user' | 'group'; id: string; name: string }> }) => {
     if (!user) {
       toast.error("Please sign in to save memos");
       return;
@@ -235,7 +235,8 @@ export function RecordView() {
           summary: result.summary || transcriptToProcess.slice(0, 150),
           categories: result.categories || ["Ideas"],
           tasks: result.tasks || [],
-          is_public: data.isPublic,
+          is_public: data.visibility === 'followers' || data.visibility === 'void',
+          visibility: data.visibility,
           audio_url: audioUrl,
           duration: currentDuration,
           author_name: getDisplayName(),
@@ -247,6 +248,18 @@ export function RecordView() {
 
       if (dbError) {
         throw dbError;
+      }
+
+      // Create memo shares if visibility is 'shared'
+      if (data.visibility === 'shared' && data.recipients && data.recipients.length > 0) {
+        const shareEntries = data.recipients.map(recipient => ({
+          memo_id: savedMemo.id,
+          shared_with_user_id: recipient.type === 'user' ? recipient.id : null,
+          shared_with_group_id: recipient.type === 'group' ? recipient.id : null,
+          shared_by: user.id,
+        }));
+
+        await supabase.from('memo_shares').insert(shareEntries);
       }
 
       const newMemo: Memo = {

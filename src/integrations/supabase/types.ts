@@ -100,6 +100,68 @@ export type Database = {
         }
         Relationships: []
       }
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       memo_likes: {
         Row: {
           created_at: string
@@ -129,6 +191,48 @@ export type Database = {
           },
         ]
       }
+      memo_shares: {
+        Row: {
+          created_at: string
+          id: string
+          memo_id: string
+          shared_by: string
+          shared_with_group_id: string | null
+          shared_with_user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          memo_id: string
+          shared_by: string
+          shared_with_group_id?: string | null
+          shared_with_user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          memo_id?: string
+          shared_by?: string
+          shared_with_group_id?: string | null
+          shared_with_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memo_shares_memo_id_fkey"
+            columns: ["memo_id"]
+            isOneToOne: false
+            referencedRelation: "memos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "memo_shares_shared_with_group_id_fkey"
+            columns: ["shared_with_group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memos: {
         Row: {
           audio_url: string | null
@@ -148,6 +252,7 @@ export type Database = {
           updated_at: string
           user_id: string | null
           view_count: number
+          visibility: string
           visibility_override: boolean | null
         }
         Insert: {
@@ -168,6 +273,7 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           view_count?: number
+          visibility?: string
           visibility_override?: boolean | null
         }
         Update: {
@@ -188,6 +294,7 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           view_count?: number
+          visibility?: string
           visibility_override?: boolean | null
         }
         Relationships: [
@@ -312,7 +419,19 @@ export type Database = {
         }
         Returns: undefined
       }
+      has_memo_access: {
+        Args: { _memo_id: string; _user_id: string }
+        Returns: boolean
+      }
       increment_view_count: { Args: { memo_uuid: string }; Returns: undefined }
+      is_group_admin: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_group_member: {
+        Args: { _group_id: string; _user_id: string }
+        Returns: boolean
+      }
       toggle_memo_like: {
         Args: { p_memo_id: string; p_user_id: string }
         Returns: boolean
