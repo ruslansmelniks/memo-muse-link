@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 import { MiniAudioPlayer } from "@/components/MiniAudioPlayer";
+import { useNativeApp } from "@/hooks/useNativeApp";
 import Index from "./pages/Index";
 import MemoPage from "./pages/MemoPage";
 import ProfilePage from "./pages/ProfilePage";
@@ -15,25 +16,36 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const AppContent = () => {
+  // Initialize native app features (splash screen, status bar)
+  useNativeApp();
+  
+  return (
+    <>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/memo/:id" element={<MemoPage />} />
+          <Route path="/profile/:userId" element={<ProfilePage />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        <MiniAudioPlayer />
+      </BrowserRouter>
+    </>
+  );
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <AudioPlayerProvider>
         <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/memo/:id" element={<MemoPage />} />
-              <Route path="/profile/:userId" element={<ProfilePage />} />
-              <Route path="/privacy" element={<PrivacyPolicy />} />
-              <Route path="/terms" element={<TermsOfService />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-            <MiniAudioPlayer />
-          </BrowserRouter>
+          <AppContent />
         </TooltipProvider>
       </AudioPlayerProvider>
     </AuthProvider>
