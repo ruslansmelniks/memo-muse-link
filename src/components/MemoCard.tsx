@@ -1,9 +1,12 @@
 import { useState, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Heart, MessageCircle, Globe, Lock, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy, Pencil, Check, X, FolderInput, Folder as FolderIcon, Plus } from "lucide-react";
+import { Heart, MessageCircle, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy, Pencil, Check, X, FolderInput, Folder as FolderIcon, Plus, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ShareButton } from "@/components/ShareButton";
 import { AudioWaveform } from "@/components/AudioWaveform";
+import { VisibilityIcon } from "@/components/VisibilitySelector";
+import { ShareVisibilityModal } from "@/components/ShareVisibilityModal";
+import { MemoVisibility, ShareRecipient } from "@/hooks/useMemoSharing";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,6 +62,7 @@ interface MemoCardProps {
     categories: string[];
     tasks: string[];
     isPublic: boolean;
+    visibility?: MemoVisibility;
     createdAt: Date;
     duration: number;
     author: {
@@ -74,7 +78,7 @@ interface MemoCardProps {
   onDelete?: (id: string) => void;
   onUpdateTitle?: (id: string, newTitle: string) => void;
   onMoveToFolder?: (memoId: string, folderId: string | null) => void;
-  onToggleVisibility?: (id: string, isPublic: boolean) => void;
+  onUpdateVisibility?: (memoId: string, visibility: MemoVisibility, recipients?: ShareRecipient[]) => Promise<void>;
   onCreateFolder?: () => void;
   folders?: Folder[];
   canDelete?: boolean;
@@ -112,16 +116,19 @@ const iconComponents: Record<FolderIconType, React.ElementType> = {
   coffee: Coffee,
 };
 
-export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, onMoveToFolder, onToggleVisibility, onCreateFolder, folders = [], canDelete = false }: MemoCardProps) {
+export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, onMoveToFolder, onUpdateVisibility, onCreateFolder, folders = [], canDelete = false }: MemoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(memo.duration);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showTranscriptDialog, setShowTranscriptDialog] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(memo.title);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
+  // Derive visibility from memo props, defaulting based on isPublic
+  const memoVisibility: MemoVisibility = memo.visibility || (memo.isPublic ? 'void' : 'private');
   const currentFolder = folders.find(f => f.id === memo.folderId);
 
   const handleSaveTitle = () => {
@@ -363,11 +370,7 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {memo.isPublic ? (
-              <Globe className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <Lock className="h-4 w-4 text-muted-foreground" />
-            )}
+            <VisibilityIcon visibility={memoVisibility} className="h-4 w-4 text-muted-foreground" />
             {canDelete && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -389,20 +392,11 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
                     </DropdownMenuItem>
                   )}
                   
-                  {/* Toggle Visibility */}
-                  {onToggleVisibility && (
-                    <DropdownMenuItem onClick={() => onToggleVisibility(memo.id, !memo.isPublic)}>
-                      {memo.isPublic ? (
-                        <>
-                          <Lock className="h-4 w-4 mr-2" />
-                          Make private
-                        </>
-                      ) : (
-                        <>
-                          <Globe className="h-4 w-4 mr-2" />
-                          Make public
-                        </>
-                      )}
+                  {/* Share & Visibility */}
+                  {onUpdateVisibility && (
+                    <DropdownMenuItem onClick={() => setShowShareModal(true)}>
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share & Visibility
                     </DropdownMenuItem>
                   )}
                   
@@ -652,6 +646,20 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Share & Visibility Modal */}
+      {onUpdateVisibility && (
+        <ShareVisibilityModal
+          isOpen={showShareModal}
+          onClose={() => setShowShareModal(false)}
+          memo={{
+            id: memo.id,
+            title: memo.title,
+            visibility: memoVisibility,
+          }}
+          onUpdate={onUpdateVisibility}
+        />
+      )}
     </>
   );
 }

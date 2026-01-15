@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
+import { MemoVisibility, ShareRecipient } from "@/hooks/useMemoSharing";
 import { LogIn } from "lucide-react";
 import { Folder } from "@/types/folder";
 
@@ -22,6 +23,7 @@ interface Memo {
   categories: string[];
   tasks: string[];
   isPublic: boolean;
+  visibility?: MemoVisibility;
   createdAt: Date;
   duration: number;
   author: { name: string; avatar?: string };
@@ -82,6 +84,7 @@ export function RecordView() {
         categories: m.categories || [],
         tasks: m.tasks || [],
         isPublic: m.is_public,
+        visibility: m.visibility as MemoVisibility,
         createdAt: new Date(m.created_at),
         duration: m.duration,
         author: { name: getDisplayName(), avatar: getAvatarUrl() || undefined },
@@ -271,6 +274,7 @@ export function RecordView() {
         categories: savedMemo.categories || [],
         tasks: savedMemo.tasks || [],
         isPublic: savedMemo.is_public,
+        visibility: data.visibility,
         createdAt: new Date(savedMemo.created_at),
         duration: savedMemo.duration,
         author: { name: getDisplayName(), avatar: getAvatarUrl() || undefined },
@@ -326,20 +330,48 @@ export function RecordView() {
     }
   };
 
-  const handleToggleVisibility = async (id: string, isPublic: boolean) => {
+  const handleUpdateVisibility = async (id: string, visibility: MemoVisibility, recipients?: ShareRecipient[]) => {
     try {
+      const isPublic = visibility === 'followers' || visibility === 'void';
+      
       const { error } = await supabase
         .from("memos")
-        .update({ is_public: isPublic })
+        .update({ visibility, is_public: isPublic })
         .eq("id", id);
 
       if (error) throw error;
 
-      setMemos(memos.map(m => m.id === id ? { ...m, isPublic } : m));
-      toast.success(isPublic ? "Memo is now public" : "Memo is now private");
+      // Handle share recipients
+      if (visibility === 'shared' && recipients && recipients.length > 0) {
+        // Remove existing shares
+        await supabase
+          .from('memo_shares')
+          .delete()
+          .eq('memo_id', id)
+          .eq('shared_by', user?.id);
+
+        // Add new shares
+        const shareEntries = recipients.map(recipient => ({
+          memo_id: id,
+          shared_with_user_id: recipient.type === 'user' ? recipient.id : null,
+          shared_with_group_id: recipient.type === 'group' ? recipient.id : null,
+          shared_by: user?.id,
+        }));
+        await supabase.from('memo_shares').insert(shareEntries);
+      } else if (visibility !== 'shared') {
+        // Remove all shares if not shared visibility
+        await supabase
+          .from('memo_shares')
+          .delete()
+          .eq('memo_id', id)
+          .eq('shared_by', user?.id);
+      }
+
+      setMemos(memos.map(m => m.id === id ? { ...m, isPublic, visibility } : m));
     } catch (error) {
       console.error("Visibility update error:", error);
       toast.error("Failed to update visibility");
+      throw error;
     }
   };
 
@@ -458,7 +490,7 @@ export function RecordView() {
                   canDelete={true}
                   onDelete={handleDeleteMemo}
                   onUpdateTitle={handleUpdateTitle}
-                  onToggleVisibility={handleToggleVisibility}
+                  onUpdateVisibility={handleUpdateVisibility}
                   onMoveToFolder={handleMoveToFolder}
                   onCreateFolder={() => setShowFolderModal(true)}
                   folders={folders}

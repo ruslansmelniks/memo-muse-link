@@ -14,6 +14,7 @@ import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
+import { MemoVisibility, ShareRecipient } from "@/hooks/useMemoSharing";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Folder } from "@/types/folder";
@@ -36,6 +37,7 @@ interface Memo {
   categories: string[];
   tasks: string[];
   isPublic: boolean;
+  visibility?: MemoVisibility;
   createdAt: Date;
   duration: number;
   author: { name: string; avatar?: string };
@@ -106,6 +108,7 @@ export function LibraryView() {
         categories: m.categories || [],
         tasks: m.tasks || [],
         isPublic: m.is_public,
+        visibility: m.visibility as MemoVisibility,
         createdAt: new Date(m.created_at),
         duration: m.duration,
         author: { name: getDisplayName(), avatar: getAvatarUrl() || undefined },
@@ -205,6 +208,51 @@ export function LibraryView() {
     } catch (error) {
       console.error("Move error:", error);
       toast.error("Failed to move memo");
+    }
+  };
+
+  const handleUpdateVisibility = async (memoId: string, visibility: MemoVisibility, recipients?: ShareRecipient[]) => {
+    try {
+      const isPublic = visibility === 'followers' || visibility === 'void';
+      
+      const { error } = await supabase
+        .from("memos")
+        .update({ visibility, is_public: isPublic })
+        .eq("id", memoId);
+
+      if (error) throw error;
+
+      // Handle share recipients
+      if (visibility === 'shared' && recipients && recipients.length > 0) {
+        // Remove existing shares
+        await supabase
+          .from('memo_shares')
+          .delete()
+          .eq('memo_id', memoId)
+          .eq('shared_by', user?.id);
+
+        // Add new shares
+        const shareEntries = recipients.map(recipient => ({
+          memo_id: memoId,
+          shared_with_user_id: recipient.type === 'user' ? recipient.id : null,
+          shared_with_group_id: recipient.type === 'group' ? recipient.id : null,
+          shared_by: user?.id,
+        }));
+        await supabase.from('memo_shares').insert(shareEntries);
+      } else if (visibility !== 'shared') {
+        // Remove all shares if not shared visibility
+        await supabase
+          .from('memo_shares')
+          .delete()
+          .eq('memo_id', memoId)
+          .eq('shared_by', user?.id);
+      }
+
+      setMemos(memos.map(m => m.id === memoId ? { ...m, isPublic, visibility } : m));
+    } catch (error) {
+      console.error("Visibility update error:", error);
+      toast.error("Failed to update visibility");
+      throw error;
     }
   };
 
@@ -584,6 +632,7 @@ export function LibraryView() {
                                   canDelete={true}
                                   onDelete={handleDeleteMemo}
                                   onUpdateTitle={handleUpdateTitle}
+                                  onUpdateVisibility={handleUpdateVisibility}
                                   onMoveToFolder={handleMoveToFolder}
                                   folders={folders}
                                 />
