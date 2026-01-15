@@ -1,4 +1,4 @@
-import { Heart, Eye, Bookmark, Play, Pause, ListPlus, Check, UserPlus, UserCheck, Sparkles, UserCircle, TrendingUp, Clock } from "lucide-react";
+import { Heart, Eye, Bookmark, Play, Pause, ListPlus, Check, UserPlus, UserCheck, Sparkles, UserCircle, TrendingUp, Clock, Mic } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,8 @@ interface DiscoverFeedCardProps {
   memo: DiscoverMemo;
   className?: string;
   index?: number;
+  showReplyButton?: boolean;
+  onReply?: () => void;
 }
 
 // Consistent category colors matching MemoCard
@@ -50,7 +52,7 @@ function generateWaveformBars(id: string, count: number = 50): number[] {
   return bars;
 }
 
-export function DiscoverFeedCard({ memo, className, index = 0 }: DiscoverFeedCardProps) {
+export function DiscoverFeedCard({ memo, className, index = 0, showReplyButton, onReply }: DiscoverFeedCardProps) {
   const { user } = useAuth();
   const { play, pause, isPlaying, isCurrentTrack, currentTime, duration, seek, addToQueue, isInQueue } = useAudioPlayer();
   const { isBookmarked, toggleBookmark, loading: bookmarkLoading } = useBookmarks();
@@ -424,6 +426,22 @@ export function DiscoverFeedCard({ memo, className, index = 0 }: DiscoverFeedCar
 
           {/* Right: Actions */}
           <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            {/* Reply Button */}
+            {showReplyButton && onReply && (
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onReply();
+                }}
+                className="flex items-center gap-1 transition-colors hover:text-primary text-primary"
+              >
+                <Mic className="h-3.5 w-3.5" />
+                <span className="text-xs font-medium">Reply</span>
+              </motion.button>
+            )}
+
             {/* Like */}
             <button
               onClick={handleLike}
