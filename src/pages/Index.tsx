@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { TabNavigation } from "@/components/TabNavigation";
 import { RecordView } from "@/components/views/RecordView";
@@ -7,9 +7,18 @@ import { InboxView } from "@/components/views/InboxView";
 import { LibraryView } from "@/components/views/LibraryView";
 import { SettingsView } from "@/components/views/SettingsView";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useInboxUnread } from "@/hooks/useInboxUnread";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("record");
+  const { unreadCount, markAsRead } = useInboxUnread();
+
+  // Mark inbox as read when user navigates to inbox tab
+  useEffect(() => {
+    if (activeTab === "inbox") {
+      markAsRead();
+    }
+  }, [activeTab, markAsRead]);
 
   const renderView = () => {
     switch (activeTab) {
@@ -46,7 +55,11 @@ const Index = () => {
         </div>
       </main>
       
-      <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+      <TabNavigation 
+        activeTab={activeTab} 
+        onTabChange={setActiveTab} 
+        inboxUnreadCount={unreadCount}
+      />
     </div>
   );
 };
