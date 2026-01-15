@@ -396,7 +396,7 @@ export function LibraryView() {
       <div className="container mx-auto px-4 py-6 pb-32">
         <div className="text-center py-12">
           <FolderOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="font-display font-semibold text-lg mb-2">Your Library</h3>
+          <h3 className="font-display font-semibold text-lg mb-2">My Library</h3>
           <p className="text-muted-foreground">Sign in to view your saved memos</p>
         </div>
       </div>
@@ -423,7 +423,7 @@ export function LibraryView() {
         <Tabs defaultValue="my-memos" className="w-full">
           {/* Header */}
           <PageHeader 
-            title={selectedFolder ? selectedFolder.name : selectedFolderId === "unfiled" ? "Unfiled Memos" : "Your Library"} 
+            title={selectedFolder ? selectedFolder.name : selectedFolderId === "unfiled" ? "Unfiled Memos" : "My Library"} 
             subtitle={selectedFolder || selectedFolderId === "unfiled" 
               ? `${filteredMemos.length} memos`
               : `${memos.length} memos · ${totalTasks} nuggets found`
