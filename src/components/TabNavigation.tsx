@@ -6,6 +6,7 @@ import { useHaptics } from "@/hooks/useHaptics";
 interface TabNavigationProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  inboxUnreadCount?: number;
 }
 
 const tabs = [
@@ -16,7 +17,7 @@ const tabs = [
   { id: "settings", icon: Settings, label: "Settings" },
 ];
 
-export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
+export function TabNavigation({ activeTab, onTabChange, inboxUnreadCount = 0 }: TabNavigationProps) {
   const haptics = useHaptics();
 
   const handleTabChange = (tabId: string) => {
@@ -33,6 +34,7 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
+            const showBadge = tab.id === 'inbox' && inboxUnreadCount > 0;
             
             return (
               <motion.button
@@ -58,6 +60,19 @@ export function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
                     "h-5 w-5 relative z-10",
                     isActive && "stroke-[2.5]"
                   )} />
+                  
+                  {/* Unread badge */}
+                  {showBadge && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-primary flex items-center justify-center z-20"
+                    >
+                      <span className="text-[10px] font-bold text-primary-foreground">
+                        {inboxUnreadCount > 99 ? '99+' : inboxUnreadCount}
+                      </span>
+                    </motion.div>
+                  )}
                 </div>
                 <span className={cn(
                   "text-[10px] leading-tight",
