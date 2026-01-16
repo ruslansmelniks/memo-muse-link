@@ -63,7 +63,7 @@ export function DiscoverFeedCard({ memo, className, index = 0, showReplyButton, 
 
   const isThisTrack = isCurrentTrack(memo.id);
   const isThisTrackPlaying = isThisTrack && isPlaying;
-  const isDemo = memo.id.startsWith("demo-");
+  
 
   // Generate consistent waveform for this memo
   const waveformBars = useMemo(() => generateWaveformBars(memo.id, 60), [memo.id]);
@@ -92,8 +92,8 @@ export function DiscoverFeedCard({ memo, className, index = 0, showReplyButton, 
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const memoLink = isDemo ? "#" : `/memo/${memo.id}`;
-  const profileLink = isDemo || !memo.author.id ? "#" : `/profile/${memo.author.id}`;
+  const memoLink = `/memo/${memo.id}`;
+  const profileLink = memo.author.id ? `/profile/${memo.author.id}` : "#";
 
   const handlePlayToggle = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -149,7 +149,7 @@ export function DiscoverFeedCard({ memo, className, index = 0, showReplyButton, 
       toast.error("Sign in to like memos");
       return;
     }
-    if (isDemo) return;
+    
     
     const result = await toggleLike(memo.id, likeCount);
     if (result.success) {
@@ -161,10 +161,6 @@ export function DiscoverFeedCard({ memo, className, index = 0, showReplyButton, 
     e.preventDefault();
     e.stopPropagation();
     
-    if (isDemo) {
-      toast.error("Demo memos cannot be saved");
-      return;
-    }
     await toggleBookmark(memo.id);
   };
 
@@ -182,7 +178,7 @@ export function DiscoverFeedCard({ memo, className, index = 0, showReplyButton, 
       return;
     }
     
-    if (!memo.author.id || isDemo || isOwnMemo) return;
+    if (!memo.author.id || isOwnMemo) return;
     
     const success = await toggleFollow(memo.author.id);
     if (success) {
@@ -249,7 +245,7 @@ export function DiscoverFeedCard({ memo, className, index = 0, showReplyButton, 
           </div>
           
           {/* Follow Button */}
-          {memo.author.id && !isOwnMemo && !isDemo && (
+          {memo.author.id && !isOwnMemo && (
             <Button
               variant={authorIsFollowed ? "outline" : "default"}
               size="sm"
