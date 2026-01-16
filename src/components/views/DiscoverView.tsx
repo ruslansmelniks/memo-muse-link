@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Compass, SlidersHorizontal, Loader2, Sparkles, TrendingUp, Clock, Users } from "lucide-react";
 import { useDiscoverMemos, DiscoverFeed } from "@/hooks/useDiscoverMemos";
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { DiscoverFeedCard } from "@/components/DiscoverFeedCard";
 import { DiscoverCardSkeleton } from "@/components/DiscoverCardSkeleton";
 import { DiscoverFilterSheet } from "@/components/DiscoverFilterSheet";
-import { DEMO_MEMOS } from "@/data/demoMemos";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -42,18 +41,8 @@ export function DiscoverView() {
     searchQuery: debouncedSearch,
   });
 
-  // Always include demo memos as supplementary content when db has few memos
-  const memos = useMemo(() => {
-    // If we have enough real memos, show only those
-    if (dbMemos.length >= 5) return dbMemos;
-    
-    // Mix real memos with demo memos for richer feed
-    const existingIds = new Set(dbMemos.map(m => m.id));
-    const demosToAdd = DEMO_MEMOS.filter(d => !existingIds.has(d.id));
-    
-    // Interleave: real memos first, then demos
-    return [...dbMemos, ...demosToAdd.slice(0, 5 - dbMemos.length)];
-  }, [dbMemos]);
+  // Use database memos directly
+  const memos = dbMemos;
 
   // Pull-to-refresh
   const handleRefresh = useCallback(async () => {
