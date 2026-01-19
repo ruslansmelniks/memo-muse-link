@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, Compass, Inbox, FolderOpen, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,19 +32,38 @@ const springConfig = {
   mass: 0.8,
 };
 
+// Bounce animation for active tab - more pronounced
+const bounceTransition = {
+  type: "spring" as const,
+  stiffness: 600,
+  damping: 12,
+  mass: 0.4,
+};
+
 const tapAnimation = {
   scale: 0.85,
 };
 
 export function TabNavigation({ activeTab, onTabChange, inboxUnreadCount = 0 }: TabNavigationProps) {
   const haptics = useHaptics();
+  const [bouncingTab, setBouncingTab] = useState<string | null>(null);
 
   const handleTabChange = (tabId: string) => {
     if (tabId !== activeTab) {
       haptics.selection();
+      // Trigger bounce animation
+      setBouncingTab(tabId);
     }
     onTabChange(tabId);
   };
+
+  // Reset bounce state after animation
+  useEffect(() => {
+    if (bouncingTab) {
+      const timer = setTimeout(() => setBouncingTab(null), 400);
+      return () => clearTimeout(timer);
+    }
+  }, [bouncingTab]);
 
   return (
     // iOS Tab Bar with frosted glass effect
@@ -68,6 +88,7 @@ export function TabNavigation({ activeTab, onTabChange, inboxUnreadCount = 0 }: 
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
+          const isBouncing = bouncingTab === tab.id;
           const showBadge = tab.id === 'inbox' && inboxUnreadCount > 0;
           
           return (
@@ -84,10 +105,10 @@ export function TabNavigation({ activeTab, onTabChange, inboxUnreadCount = 0 }: 
               <motion.div 
                 className="relative"
                 animate={{ 
-                  scale: isActive ? 1 : 1,
+                  scale: isBouncing ? [1, 1.25, 0.95, 1.05, 1] : 1,
                   y: isActive ? -1 : 0 
                 }}
-                transition={springConfig}
+                transition={isBouncing ? bounceTransition : springConfig}
               >
                 <motion.div
                   animate={{ 
