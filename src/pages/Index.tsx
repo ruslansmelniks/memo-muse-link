@@ -8,14 +8,17 @@ import { LibraryView } from "@/components/views/LibraryView";
 import { SettingsView } from "@/components/views/SettingsView";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { useInboxUnread } from "@/hooks/useInboxUnread";
+import { FEATURE_FLAGS } from "@/lib/featureFlags";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState("record");
+  
+  // Only use inbox unread tracking when social features are enabled
   const { unreadCount, markAsRead } = useInboxUnread();
 
-  // Mark inbox as read when user navigates to inbox tab
+  // Mark inbox as read when user navigates to inbox tab (only when social features enabled)
   useEffect(() => {
-    if (activeTab === "inbox") {
+    if (!FEATURE_FLAGS.CORE_FEATURES_ONLY && activeTab === "inbox") {
       markAsRead();
     }
   }, [activeTab, markAsRead]);
@@ -25,9 +28,11 @@ const Index = () => {
       case "record":
         return <RecordView />;
       case "discover":
-        return <DiscoverView />;
+        // In core features mode, redirect to record
+        return FEATURE_FLAGS.CORE_FEATURES_ONLY ? <RecordView /> : <DiscoverView />;
       case "inbox":
-        return <InboxView />;
+        // In core features mode, redirect to record
+        return FEATURE_FLAGS.CORE_FEATURES_ONLY ? <RecordView /> : <InboxView />;
       case "library":
         return <LibraryView />;
       case "settings":
@@ -58,7 +63,7 @@ const Index = () => {
       <TabNavigation 
         activeTab={activeTab} 
         onTabChange={setActiveTab} 
-        inboxUnreadCount={unreadCount}
+        inboxUnreadCount={FEATURE_FLAGS.CORE_FEATURES_ONLY ? 0 : unreadCount}
       />
     </div>
   );
