@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { Mic, Compass, Inbox, FolderOpen, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHaptics } from "@/hooks/useHaptics";
+import { FEATURE_FLAGS } from "@/lib/featureFlags";
 
 interface TabNavigationProps {
   activeTab: string;
@@ -9,13 +10,18 @@ interface TabNavigationProps {
   inboxUnreadCount?: number;
 }
 
-const tabs = [
+const allTabs = [
   { id: "record", icon: Mic, label: "Record" },
   { id: "discover", icon: Compass, label: "Discover" },
   { id: "inbox", icon: Inbox, label: "Inbox" },
   { id: "library", icon: FolderOpen, label: "My Library" },
   { id: "settings", icon: Settings, label: "Settings" },
 ];
+
+// Filter tabs based on feature flag
+const tabs = FEATURE_FLAGS.CORE_FEATURES_ONLY
+  ? allTabs.filter(tab => ["record", "library", "settings"].includes(tab.id))
+  : allTabs;
 
 export function TabNavigation({ activeTab, onTabChange, inboxUnreadCount = 0 }: TabNavigationProps) {
   const haptics = useHaptics();

@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { MemoVisibility, ShareRecipient } from "@/hooks/useMemoSharing";
+import { FEATURE_FLAGS } from "@/lib/featureFlags";
 
 interface RecordingModalProps {
   isOpen: boolean;
@@ -228,14 +229,16 @@ export function RecordingModal({
                   />
                 </div>
 
-                {/* Visibility Selector */}
-                <VisibilitySelector 
-                  value={visibility} 
-                  onChange={setVisibility} 
-                />
+                {/* Visibility Selector - hidden in core features mode */}
+                {!FEATURE_FLAGS.CORE_FEATURES_ONLY && (
+                  <VisibilitySelector 
+                    value={visibility} 
+                    onChange={setVisibility} 
+                  />
+                )}
 
                 {/* Share Recipients Picker - shown only when visibility is 'shared' */}
-                {visibility === "shared" && (
+                {!FEATURE_FLAGS.CORE_FEATURES_ONLY && visibility === "shared" && (
                   <div className="p-4 rounded-xl bg-muted/30 border border-border">
                     <Label className="text-sm font-medium text-foreground mb-3 block">
                       Share with
@@ -248,7 +251,7 @@ export function RecordingModal({
                 )}
 
                 {/* Void explainer */}
-                {visibility === "void" && (
+                {!FEATURE_FLAGS.CORE_FEATURES_ONLY && visibility === "void" && (
                   <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/20">
                     <p className="text-sm text-purple-700 dark:text-purple-300">
                       ✨ Your memo will float into the universe for random listeners to discover. 
