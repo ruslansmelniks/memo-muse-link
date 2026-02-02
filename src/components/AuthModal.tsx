@@ -2,7 +2,7 @@ import { useState } from "react";
 import { X, Mail, Lock, Loader2, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
+import { toast } from "@/lib/nativeToast";
 
 interface AuthModalProps {
   isOpen: boolean;

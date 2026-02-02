@@ -64,6 +64,41 @@ This project is built with:
 
 Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
 
+## How do I build an iOS app?
+
+This project uses Capacitor to wrap the web app into a native iOS shell.
+
+**Prerequisites**
+- Node.js 22+ (Capacitor CLI requires Node 22 or newer)
+- Xcode (from the App Store)
+- CocoaPods (`sudo gem install cocoapods`)
+
+**One-time setup**
+```sh
+npm install
+npm run build
+npm run cap:add:ios
+```
+
+**Sync web changes to iOS**
+```sh
+npm run build
+npm run cap:sync
+```
+
+**Open in Xcode**
+```sh
+npm run cap:open:ios
+```
+
+**Development with live reload (optional)**
+```sh
+CAPACITOR_SERVER_URL="https://your-preview-url" npm run cap:sync
+```
+
+If `CAPACITOR_SERVER_URL` is set, the iOS app loads that URL. For App Store
+builds, keep it unset and ship the bundled `dist/` assets.
+
 ## Can I connect a custom domain to my Lovable project?
 
 Yes, you can!

@@ -85,13 +85,14 @@ export function FolderSelector({ selectedFolderId, onSelectFolder, onCreateNew }
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
           role="combobox"
           aria-expanded={open}
           className="w-full justify-between"
+          type="button"
         >
           <div className="flex items-center gap-2">
             {selectedFolder ? (
@@ -119,7 +120,7 @@ export function FolderSelector({ selectedFolderId, onSelectFolder, onCreateNew }
           <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-64 p-0" align="start">
+      <PopoverContent className="w-64 p-0 z-[120]" align="start">
         <div className="max-h-64 overflow-auto">
           {/* Unfiled option */}
           <button

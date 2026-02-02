@@ -4,6 +4,7 @@ import { Mic, Square, Pause, Play, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useHaptics } from "@/hooks/useHaptics";
+import { toast } from "@/lib/nativeToast";
 import { LanguageSelector, SUPPORTED_LANGUAGES } from "@/components/LanguageSelector";
 
 interface VoiceRecorderProps {
@@ -92,7 +93,15 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
     try {
       // Show initializing state while accessing microphone
       setIsInitializing(true);
-      
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Microphone access is not supported on this device.");
+      }
+
+      if (typeof MediaRecorder === "undefined") {
+        throw new Error("Recording isn't supported on this device. Try a physical iPhone.");
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       mediaStreamRef.current = stream;
       
@@ -138,11 +147,23 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       updateAudioLevels();
     } catch (err) {
       console.error("Error accessing microphone:", err);
+      const error = err as DOMException | Error;
+      const errorName = "name" in error ? error.name : "";
+      let message = "Unable to access the microphone.";
+      if (errorName === "NotAllowedError") {
+        message = "Microphone access was denied. Enable it in iOS Settings and try again.";
+      } else if (errorName === "NotFoundError") {
+        message = "No microphone is available on this device (simulator limitation).";
+      } else if (error instanceof Error && error.message) {
+        message = error.message;
+      }
+      toast.error(message);
       setIsInitializing(false);
     }
   };
 
   const stopRecording = () => {
+    console.log("[VoiceRecorder] stopRecording called, isRecording:", isRecording, "hasMediaRecorder:", !!mediaRecorderRef.current);
     haptics.notification("success");
     
     if (isRecording && mediaRecorderRef.current) {
@@ -157,9 +178,10 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
         // Use the MIME type that was actually used for recording
         const actualMimeType = mimeTypeRef.current || "audio/webm";
         const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
-        console.log("Created audio blob:", audioBlob.type, audioBlob.size);
+        console.log("[VoiceRecorder] onstop fired, blob:", audioBlob.type, audioBlob.size, "duration:", finalDuration);
         
         // ElevenLabs will do the transcription - no browser speech recognition needed
+        console.log("[VoiceRecorder] Calling onRecordingComplete");
         onRecordingComplete("", finalDuration, audioBlob, selectedLanguage);
       };
       
@@ -179,7 +201,9 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       onRecordingStateChange?.(false);
       setIsPaused(false);
       isPausedRef.current = false;
+      setDuration(0);
       setAudioLevels(Array(12).fill(0.2));
+      audioChunksRef.current = [];
     }
   };
 

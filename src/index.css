@@ -70,6 +70,15 @@
     --shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.06);
     --shadow-glow: 0 0 24px rgba(232, 121, 89, 0.15);
 
+    /* iOS-style liquid glass tab bar */
+    --ios-tab-background: rgba(255, 255, 255, 0.7);
+    --ios-tab-border: rgba(0, 0, 0, 0.08);
+    --ios-tab-highlight: rgba(255, 255, 255, 0.6);
+    --ios-tab-shadow: 0 -1px 12px rgba(0, 0, 0, 0.06);
+    --ios-tab-active: hsl(var(--primary));
+    --ios-tab-inactive: rgba(142, 142, 147, 1);
+    --native-tabbar-height: 49px;
+
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 240 5.9% 10%;
@@ -116,6 +125,14 @@
     --glass-border: rgba(60, 55, 50, 0.6);
     --glass-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
 
+    --ios-tab-background: rgba(25, 23, 22, 0.75);
+    --ios-tab-border: rgba(255, 255, 255, 0.08);
+    --ios-tab-highlight: rgba(255, 255, 255, 0.12);
+    --ios-tab-shadow: 0 -1px 14px rgba(0, 0, 0, 0.25);
+    --ios-tab-active: hsl(var(--primary));
+    --ios-tab-inactive: rgba(142, 142, 147, 1);
+    --native-tabbar-height: 49px;
+
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;
@@ -124,6 +141,10 @@
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .native-ios {
+    --native-tabbar-height: 49px;
   }
 }
 
@@ -140,6 +161,11 @@
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Source Serif 4', Georgia, serif;
     font-weight: 600;
+  }
+
+  /* Disable double-tap-to-zoom on interactive elements for faster taps */
+  button, a, [role="button"], [tabindex], input, select, textarea {
+    touch-action: manipulation;
   }
 }
 
@@ -201,6 +227,61 @@
     background: var(--gradient-default);
   }
 
+  .ios-tab-bar {
+    position: relative;
+    background: var(--ios-tab-background);
+    border-top: 0.5px solid var(--ios-tab-border);
+    backdrop-filter: saturate(180%) blur(24px);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    box-shadow: var(--ios-tab-shadow);
+  }
+
+  .ios-tab-bar::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--ios-tab-highlight), transparent);
+    opacity: 0.7;
+    pointer-events: none;
+  }
+
+  .native-ios .toast-viewport {
+    bottom: calc(env(safe-area-inset-bottom) + var(--native-tabbar-height) + 12px);
+    top: auto;
+  }
+
+  .native-ios .toaster {
+    bottom: calc(env(safe-area-inset-bottom) + var(--native-tabbar-height) + 12px);
+  }
+
+  .native-ios .native-sheet {
+    margin-bottom: calc(env(safe-area-inset-bottom) + var(--native-tabbar-height));
+  }
+
+  .native-ios .native-sheet-cover {
+    margin-bottom: 0;
+    padding-bottom: calc(env(safe-area-inset-bottom) + 16px);
+  }
+
+  .native-ios .native-sheet-actions {
+    padding-bottom: calc(env(safe-area-inset-bottom) + var(--native-tabbar-height) + 12px);
+  }
+
+  .native-ios .memo-card {
+    background: hsl(var(--card));
+    box-shadow: var(--shadow-soft);
+  }
+
+  .native-ios .toast {
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
   .shadow-soft {
     box-shadow: var(--shadow-soft);
   }
@@ -222,6 +303,14 @@
 }
 
 @layer utilities {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
   .animate-float {
     animation: float 6s ease-in-out infinite;
   }

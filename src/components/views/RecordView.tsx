@@ -6,7 +6,7 @@ import { AuthModal } from "@/components/AuthModal";
 import { FolderModal } from "@/components/FolderModal";
 import { TopicSuggestions } from "@/components/TopicSuggestions";
 import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
+import { toast } from "@/lib/nativeToast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
@@ -118,39 +118,34 @@ export function RecordView() {
   };
 
   const handleRecordingComplete = (transcript: string, duration: number, audioBlob: Blob | null, language: string) => {
+    console.log("[RecordView] handleRecordingComplete called", { duration, hasBlob: !!audioBlob, user: !!user });
+    
     // Require at least some audio to be recorded
     if (duration < 1) {
-      toast.error("Recording too short", {
-        description: "Please record for at least 1 second.",
-      });
+      console.log("[RecordView] Recording too short, duration:", duration);
+      toast.error("Recording too short");
       return;
     }
     
     if (!user) {
+      console.log("[RecordView] No user, showing auth modal");
       setCurrentTranscript(transcript);
       setCurrentDuration(duration);
       setCurrentAudioBlob(audioBlob);
       setCurrentLanguage(language);
       setShowAuthModal(true);
-      toast.info("Sign in required", {
-        description: "Create an account to save your memos.",
-      });
+      toast.info("Sign in to save");
       return;
     }
     
     // Always show modal - ElevenLabs will transcribe even if browser STT failed
+    console.log("[RecordView] Setting showModal to true");
     setCurrentTranscript(transcript);
     setCurrentDuration(duration);
     setCurrentAudioBlob(audioBlob);
     setCurrentLanguage(language);
+    // Always use web modal - it works reliably across all platforms
     setShowModal(true);
-    
-    // Show helpful toast about what happens next
-    if (!transcript.trim()) {
-      toast.info("Processing your recording...", {
-        description: "AI will transcribe and summarize your audio.",
-      });
-    }
   };
 
   const handleSave = async (data: { title: string; visibility: 'private' | 'shared' | 'followers' | 'void'; folderId: string | null; recipients?: Array<{ type: 'user' | 'group'; id: string; name: string }> }) => {
@@ -263,17 +258,13 @@ export function RecordView() {
           console.error("Failed to trigger background transcription:", err);
         });
         
-        toast.success("Memo saved!", {
-          description: "AI transcription in progress (may take up to 5 min).",
-        });
+        toast.success("Saved", { description: "Transcription in progress" });
       } else {
-        toast.success("Memo saved!");
+        toast.success("Saved");
       }
     } catch (error) {
       console.error("Save error:", error);
-      toast.error("Save failed", {
-        description: "Could not save memo. Please try again.",
-      });
+      toast.error("Save failed");
     } finally {
       setIsProcessing(false);
     }
@@ -420,7 +411,7 @@ export function RecordView() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-12 pb-36">
+    <div className="container mx-auto px-4 py-12 pb-36 relative h-full overflow-y-auto overscroll-contain">
       {/* Voice Recorder */}
       <div className="mb-12">
         <VoiceRecorder 

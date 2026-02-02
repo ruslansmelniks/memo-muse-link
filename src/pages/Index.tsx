@@ -23,6 +23,24 @@ const Index = () => {
     }
   }, [activeTab, markAsRead]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleNativeTabChange = (event: Event) => {
+      const customEvent = event as CustomEvent<{ tab?: string }>;
+      if (customEvent.detail?.tab) {
+        setActiveTab(customEvent.detail.tab);
+      }
+    };
+
+    window.addEventListener("nativeTabChange", handleNativeTabChange as EventListener);
+    return () => window.removeEventListener("nativeTabChange", handleNativeTabChange as EventListener);
+  }, []);
+
+  const isNativeIos =
+    typeof window !== "undefined" &&
+    (window as typeof window & { Capacitor?: { getPlatform?: () => string } }).Capacitor?.getPlatform?.() === "ios";
+
   const renderView = () => {
     switch (activeTab) {
       case "record":
@@ -60,11 +78,13 @@ const Index = () => {
         </div>
       </main>
       
-      <TabNavigation 
-        activeTab={activeTab} 
-        onTabChange={setActiveTab} 
-        inboxUnreadCount={FEATURE_FLAGS.CORE_FEATURES_ONLY ? 0 : unreadCount}
-      />
+      {!isNativeIos && (
+        <TabNavigation
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          inboxUnreadCount={FEATURE_FLAGS.CORE_FEATURES_ONLY ? 0 : unreadCount}
+        />
+      )}
     </div>
   );
 };

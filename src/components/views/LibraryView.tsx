@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { FolderOpen, Clock, Sparkles, GripVertical, Bookmark, Tag } from "lucide-react";
+import { FolderOpen, Clock, Sparkles, GripVertical, Bookmark, Tag, Trash2, RotateCcw, Wand2 } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { LibraryStatsModals } from "@/components/LibraryStatsModals";
 import { PageHeader } from "@/components/PageHeader";
 import { MemoCard } from "@/components/MemoCard";
-import { SwipeableMemoCard } from "@/components/SwipeableMemoCard";
 import { FolderSidebar } from "@/components/FolderSidebar";
+import { Button } from "@/components/ui/button";
+import { useHaptics } from "@/hooks/useHaptics";
 import { FolderModal } from "@/components/FolderModal";
 import { FolderSummaryModal } from "@/components/FolderSummaryModal";
 import { PullToRefreshIndicator } from "@/components/PullToRefresh";
@@ -16,7 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { MemoVisibility, ShareRecipient } from "@/hooks/useMemoSharing";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/lib/nativeToast";
 import { Folder } from "@/types/folder";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -51,6 +52,7 @@ interface Memo {
 
 export function LibraryView() {
   const [memos, setMemos] = useState<Memo[]>([]);
+  const [archivedMemos, setArchivedMemos] = useState<Memo[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -66,6 +68,7 @@ export function LibraryView() {
   const { user } = useAuth();
   const { getDisplayName, getAvatarUrl } = useProfile();
   const isMobile = useIsMobile();
+  const haptics = useHaptics();
 
   const handleRefresh = useCallback(async () => {
     await loadData();
@@ -181,9 +184,30 @@ export function LibraryView() {
     }
   }, [memos]);
 
+  // Archive memo (soft delete - move to Deleted tab)
+  const handleArchiveMemo = (id: string) => {
+    const memo = memos.find(m => m.id === id);
+    if (memo) {
+      setArchivedMemos(prev => [memo, ...prev]);
+      setMemos(memos.filter(m => m.id !== id));
+      toast.success("Moved to Deleted");
+    }
+  };
+
+  // Restore memo from archive
+  const handleRestoreMemo = (id: string) => {
+    const memo = archivedMemos.find(m => m.id === id);
+    if (memo) {
+      setMemos(prev => [memo, ...prev]);
+      setArchivedMemos(archivedMemos.filter(m => m.id !== id));
+      toast.success("Memo restored");
+    }
+  };
+
+  // Permanently delete memo
   const handleDeleteMemo = async (id: string) => {
     try {
-      const memo = memos.find(m => m.id === id);
+      const memo = memos.find(m => m.id === id) || archivedMemos.find(m => m.id === id);
       
       const { error } = await supabase
         .from("memos")
@@ -200,7 +224,8 @@ export function LibraryView() {
       }
 
       setMemos(memos.filter(m => m.id !== id));
-      toast.success("Memo deleted");
+      setArchivedMemos(archivedMemos.filter(m => m.id !== id));
+      toast.success("Memo permanently deleted");
     } catch (error) {
       console.error("Delete error:", error);
       toast.error("Failed to delete memo");
@@ -489,10 +514,11 @@ export function LibraryView() {
     <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div 
         ref={containerRef}
-        className="container mx-auto px-4 py-8 pb-36 relative overflow-auto"
+        className="container mx-auto px-4 py-6 pb-36 relative h-full overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch"
         style={{ 
           transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
           transition: pullDistance === 0 ? 'transform 0.2s ease-out' : undefined,
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         <PullToRefreshIndicator
@@ -527,6 +553,15 @@ export function LibraryView() {
               <Bookmark className="h-4 w-4" />
               Saved
             </TabsTrigger>
+            <TabsTrigger value="deleted" className="gap-2">
+              <Trash2 className="h-4 w-4" />
+              Deleted
+              {archivedMemos.length > 0 && (
+                <span className="ml-1 text-xs bg-destructive/20 text-destructive px-1.5 rounded-full">
+                  {archivedMemos.length}
+                </span>
+              )}
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="my-memos" className="mt-0">
@@ -552,8 +587,11 @@ export function LibraryView() {
             {!selectedFolderId && (
               <div className="grid grid-cols-3 gap-4 mb-8">
                 <button 
-                  onClick={() => setOpenStatsModal("time")}
-                  className="glass-card rounded-2xl p-4 animate-fade-in text-left hover:bg-muted/50 transition-colors group"
+                  onClick={() => {
+                    haptics.selection();
+                    setOpenStatsModal("time");
+                  }}
+                  className="glass-card rounded-2xl p-4 animate-fade-in text-left hover:bg-muted/50 transition-colors group active:scale-[0.98]"
                   style={{ animationDelay: "150ms" }}
                 >
                   <div className="w-10 h-10 rounded-xl gradient-mint flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
@@ -566,8 +604,11 @@ export function LibraryView() {
                 </button>
                 
                 <button 
-                  onClick={() => setOpenStatsModal("nuggets")}
-                  className="glass-card rounded-2xl p-4 animate-fade-in text-left hover:bg-muted/50 transition-colors group"
+                  onClick={() => {
+                    haptics.selection();
+                    setOpenStatsModal("nuggets");
+                  }}
+                  className="glass-card rounded-2xl p-4 animate-fade-in text-left hover:bg-muted/50 transition-colors group active:scale-[0.98]"
                   style={{ animationDelay: "200ms" }}
                 >
                   <div className="w-10 h-10 rounded-xl gradient-lavender flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
@@ -580,7 +621,10 @@ export function LibraryView() {
                 </button>
 
                 <button 
-                  onClick={() => setOpenStatsModal("topics")}
+                  onClick={() => {
+                    haptics.selection();
+                    setOpenStatsModal("topics");
+                  }}
                   className="glass-card rounded-2xl p-4 animate-fade-in text-left hover:bg-muted/50 transition-colors group"
                   style={{ animationDelay: "250ms" }}
                 >
@@ -593,6 +637,24 @@ export function LibraryView() {
                   <p className="text-xs text-muted-foreground">Topics</p>
                 </button>
               </div>
+            )}
+
+            {/* AI Summarize button - show when viewing a folder with memos */}
+            {selectedFolder && filteredMemos.length > 0 && (
+              <Button
+                variant="outline"
+                className="w-full mb-6 h-12 gap-2 bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20 hover:border-primary/40 hover:from-primary/10 hover:to-primary/20"
+                onClick={() => {
+                  haptics.impact("medium");
+                  handleSummarizeFolder(selectedFolder);
+                }}
+                disabled={isSummarizing}
+              >
+                <Wand2 className="h-4 w-4 text-primary" />
+                <span className="text-primary font-medium">
+                  {isSummarizing ? "Summarizing..." : "Summarize folder with AI"}
+                </span>
+              </Button>
             )}
             
             {/* Stats Modals */}
@@ -619,18 +681,19 @@ export function LibraryView() {
                     </div>
                   ) : filteredMemos.length > 0 ? (
                     isMobile ? (
-                      // Mobile: Swipeable cards
+                      // Mobile: Regular cards (delete via menu)
                       filteredMemos.map((memo, i) => (
                         <div
                           key={memo.id}
                           className="animate-slide-up"
                           style={{ animationDelay: `${250 + i * 100}ms` }}
                         >
-                          <SwipeableMemoCard
+                          <MemoCard
                             memo={memo}
                             canDelete={true}
-                            onDelete={handleDeleteMemo}
+                            onDelete={handleArchiveMemo}
                             onUpdateTitle={handleUpdateTitle}
+                            onUpdateVisibility={handleUpdateVisibility}
                             onMoveToFolder={handleMoveToFolder}
                             folders={folders}
                           />
@@ -703,6 +766,71 @@ export function LibraryView() {
               </p>
             </div>
             <SavedMemosSection />
+          </TabsContent>
+
+          <TabsContent value="deleted" className="mt-0">
+            <div className="mb-6 animate-fade-in">
+              <h2 className="font-display text-3xl font-bold text-foreground mb-2">
+                Deleted Memos
+              </h2>
+              <p className="text-muted-foreground">
+                {archivedMemos.length > 0 
+                  ? `${archivedMemos.length} memo${archivedMemos.length > 1 ? 's' : ''} in trash`
+                  : "No deleted memos"}
+              </p>
+            </div>
+            
+            {archivedMemos.length > 0 ? (
+              <div className="space-y-4">
+                {archivedMemos.map((memo, i) => (
+                  <div
+                    key={memo.id}
+                    className="animate-slide-up"
+                    style={{ animationDelay: `${i * 100}ms` }}
+                  >
+                    <div className="bg-card rounded-2xl p-5 border border-border/50">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium text-foreground truncate">{memo.title}</h3>
+                          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                            {memo.summary || memo.transcript.slice(0, 100)}...
+                          </p>
+                        </div>
+                        <div className="flex gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => {
+                              haptics.notification("success");
+                              handleRestoreMemo(memo.id);
+                            }}
+                            className="p-2 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors active:scale-95"
+                            title="Restore memo"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              haptics.notification("error");
+                              handleDeleteMemo(memo.id);
+                            }}
+                            className="p-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors active:scale-95"
+                            title="Delete permanently"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Trash2 className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+                <p className="text-muted-foreground">
+                  No deleted memos. Items you delete will appear here.
+                </p>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
 

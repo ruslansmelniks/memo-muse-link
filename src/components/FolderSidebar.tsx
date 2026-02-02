@@ -3,6 +3,7 @@ import { Droppable } from "@hello-pangea/dnd";
 import { Folder, FOLDER_COLORS, FolderIcon } from "@/types/folder";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useHaptics } from "@/hooks/useHaptics";
 import { 
   Folder as FolderIconLucide, 
   Briefcase, 
@@ -81,6 +82,7 @@ export function FolderSidebar({
   isDragging = false,
 }: FolderSidebarProps) {
   const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
+  const haptics = useHaptics();
 
   const getColorClass = (colorId: string) => {
     return FOLDER_COLORS.find(c => c.id === colorId)?.class || "bg-primary";
@@ -88,10 +90,23 @@ export function FolderSidebar({
 
   const handleDeleteConfirm = () => {
     if (folderToDelete) {
+      haptics.notification("error");
       onDeleteFolder(folderToDelete.id);
       setFolderToDelete(null);
     }
   };
+
+  const handleSelectFolder = (folderId: string | null) => {
+    haptics.selection();
+    onSelectFolder(folderId);
+  };
+
+  const handleRowPress =
+    (folderId: string | null) => (event: React.TouchEvent | React.MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      handleSelectFolder(folderId);
+    };
 
   return (
     <>
@@ -117,10 +132,13 @@ export function FolderSidebar({
           <ScrollArea className="h-auto max-h-[400px]">
             <div className="space-y-1">
               {/* All Memos - Not a drop target */}
-              <button
-                onClick={() => onSelectFolder(null)}
+              <div
+                onTouchEnd={handleRowPress(null)}
+                onMouseUp={handleRowPress(null)}
+                role="button"
+                tabIndex={0}
                 className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left",
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left cursor-pointer active:scale-[0.98] touch-manipulation",
                   selectedFolderId === null
                     ? "bg-primary/10 text-primary"
                     : "hover:bg-muted text-foreground"
@@ -129,7 +147,7 @@ export function FolderSidebar({
                 <LayoutGrid className="h-4 w-4" />
                 <span className="flex-1 font-medium text-sm">All Memos</span>
                 <span className="text-xs text-muted-foreground">{totalCount}</span>
-              </button>
+              </div>
 
               {/* Unfiled - Drop target */}
               <Droppable droppableId="unfiled">
@@ -138,10 +156,13 @@ export function FolderSidebar({
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                   >
-                    <button
-                      onClick={() => onSelectFolder("unfiled")}
+                    <div
+                      onTouchEnd={handleRowPress("unfiled")}
+                      onMouseUp={handleRowPress("unfiled")}
+                      role="button"
+                      tabIndex={0}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left",
+                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left cursor-pointer active:scale-[0.98] touch-manipulation",
                         selectedFolderId === "unfiled"
                           ? "bg-primary/10 text-primary"
                           : "hover:bg-muted text-foreground",
@@ -151,7 +172,7 @@ export function FolderSidebar({
                       <Inbox className="h-4 w-4" />
                       <span className="flex-1 font-medium text-sm">Unfiled</span>
                       <span className="text-xs text-muted-foreground">{unfiledCount}</span>
-                    </button>
+                    </div>
                     <div className="hidden">{provided.placeholder}</div>
                   </div>
                 )}
@@ -179,9 +200,12 @@ export function FolderSidebar({
                           snapshot.isDraggingOver && "bg-primary/20 ring-2 ring-primary"
                         )}
                       >
-                        <button
-                          onClick={() => onSelectFolder(folder.id)}
-                          className="flex-1 flex items-center gap-3 px-3 py-2.5 text-left"
+                        <div 
+                          className="flex-1 flex items-center gap-3 px-3 py-2.5 cursor-pointer active:scale-[0.98] touch-manipulation"
+                          onTouchEnd={handleRowPress(folder.id)}
+                          onMouseUp={handleRowPress(folder.id)}
+                          role="button"
+                          tabIndex={0}
                         >
                           <div
                             className={cn(
@@ -214,7 +238,7 @@ export function FolderSidebar({
                           <span className="text-xs text-muted-foreground">
                             {folder.memo_count || 0}
                           </span>
-                        </button>
+                        </div>
 
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -222,6 +246,7 @@ export function FolderSidebar({
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity mr-1"
+                              onClick={(e) => e.stopPropagation()}
                             >
                               <MoreVertical className="h-4 w-4" />
                             </Button>

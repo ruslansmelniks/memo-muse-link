@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
+import { toast } from "@/lib/nativeToast";
 
 interface ShareButtonProps {
   memoId: string;

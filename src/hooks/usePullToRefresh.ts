@@ -1,4 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
+import { Capacitor } from "@capacitor/core";
 
 interface UsePullToRefreshOptions {
   onRefresh: () => Promise<void>;
@@ -15,10 +17,37 @@ export function usePullToRefresh({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const startY = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hasTriggeredThresholdHaptic = useRef(false);
+  const isNative = Capacitor.isNativePlatform();
+
+  // Haptic feedback helpers
+  const triggerHaptic = useCallback(async (type: "threshold" | "start" | "complete") => {
+    if (!isNative) return;
+    
+    try {
+      switch (type) {
+        case "threshold":
+          // Light tap when reaching threshold
+          await Haptics.impact({ style: ImpactStyle.Light });
+          break;
+        case "start":
+          // Medium impact when refresh starts
+          await Haptics.impact({ style: ImpactStyle.Medium });
+          break;
+        case "complete":
+          // Success notification when done
+          await Haptics.notification({ type: NotificationType.Success });
+          break;
+      }
+    } catch (error) {
+      // Silently fail
+    }
+  }, [isNative]);
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (containerRef.current?.scrollTop === 0) {
       startY.current = e.touches[0].clientY;
+      hasTriggeredThresholdHaptic.current = false;
     }
   }, []);
 
@@ -35,17 +64,28 @@ export function usePullToRefresh({
         const resistance = 0.5;
         const pull = Math.min(diff * resistance, maxPull);
         setPullDistance(pull);
+        
+        // Trigger haptic when crossing threshold
+        if (pull >= threshold && !hasTriggeredThresholdHaptic.current) {
+          hasTriggeredThresholdHaptic.current = true;
+          triggerHaptic("threshold");
+        } else if (pull < threshold && hasTriggeredThresholdHaptic.current) {
+          // Reset if user pulls back below threshold
+          hasTriggeredThresholdHaptic.current = false;
+        }
       }
     },
-    [isRefreshing, maxPull]
+    [isRefreshing, maxPull, threshold, triggerHaptic]
   );
 
   const handleTouchEnd = useCallback(async () => {
     if (pullDistance >= threshold && !isRefreshing) {
       setIsRefreshing(true);
       setPullDistance(threshold);
+      triggerHaptic("start");
       try {
         await onRefresh();
+        triggerHaptic("complete");
       } finally {
         setIsRefreshing(false);
         setPullDistance(0);
@@ -54,7 +94,8 @@ export function usePullToRefresh({
       setPullDistance(0);
     }
     startY.current = 0;
-  }, [pullDistance, threshold, isRefreshing, onRefresh]);
+    hasTriggeredThresholdHaptic.current = false;
+  }, [pullDistance, threshold, isRefreshing, onRefresh, triggerHaptic]);
 
   useEffect(() => {
     const container = containerRef.current;

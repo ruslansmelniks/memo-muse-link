@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Heart, MessageCircle, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy, Pencil, Check, X, FolderInput, Folder as FolderIcon, Plus, Share2, Loader2, RefreshCw } from "lucide-react";
+import { Heart, MessageCircle, Play, Pause, CheckCircle2, Trash2, MoreVertical, FileText, Copy, Pencil, Check, X, FolderInput, Folder as FolderIcon, Plus, Download, Loader2, RefreshCw, FileAudio, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ShareButton } from "@/components/ShareButton";
 import { AudioWaveform } from "@/components/AudioWaveform";
@@ -36,7 +36,7 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/lib/nativeToast";
 import { Folder, FOLDER_COLORS, FolderIcon as FolderIconType } from "@/types/folder";
 import { 
   Folder as FolderIconLucide, 
@@ -159,9 +159,41 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
   const handleCopyTranscript = async () => {
     try {
       await navigator.clipboard.writeText(memo.transcript);
-      toast.success("Transcript copied to clipboard");
+      toast.success("Copied");
     } catch {
-      toast.error("Failed to copy transcript");
+      toast.error("Failed to copy");
+    }
+  };
+
+  const handleExportAudio = async () => {
+    if (!memo.audioUrl) {
+      toast.error("No audio available");
+      return;
+    }
+    
+    try {
+      // Fetch the audio and convert to proper audio format
+      const response = await fetch(memo.audioUrl);
+      const blob = await response.blob();
+      
+      // Create file with audio MIME type (m4a is well supported on iOS)
+      const fileName = `${(memo.title || 'memo').replace(/[^a-zA-Z0-9]/g, '_')}.m4a`;
+      const audioFile = new File([blob], fileName, { type: 'audio/mp4' });
+      
+      // Try native share (works well on iOS)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [audioFile] })) {
+        await navigator.share({
+          files: [audioFile],
+          title: memo.title,
+        });
+        return;
+      }
+      
+      // Fallback: open in new tab
+      window.open(memo.audioUrl, '_blank');
+    } catch (error) {
+      console.error("Export audio error:", error);
+      window.open(memo.audioUrl, '_blank');
     }
   };
 
@@ -339,7 +371,7 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
         transition={{ duration: 0.3, ease: "easeOut" }}
         whileHover={{ y: -2 }}
         className={cn(
-          "bg-card rounded-2xl p-7 border border-border/50 transition-colors duration-200 hover:border-border",
+          "memo-card bg-card rounded-2xl p-7 border border-border/50 transition-colors duration-200 hover:border-border",
           variant === "compact" && "p-5"
         )}
       >
@@ -396,13 +428,23 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
                     </DropdownMenuItem>
                   )}
                   
-                  {/* Share & Visibility */}
-                  {onUpdateVisibility && (
-                    <DropdownMenuItem onClick={() => setShowShareModal(true)}>
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Share & Visibility
-                    </DropdownMenuItem>
-                  )}
+                  {/* Export */}
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      <DropdownMenuItem onClick={handleExportAudio} disabled={!memo.audioUrl}>
+                        <FileAudio className="h-4 w-4 mr-2" />
+                        Export Audio
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleCopyTranscript} disabled={!memo.transcript}>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Transcript
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                   
                   <DropdownMenuSeparator />
                   

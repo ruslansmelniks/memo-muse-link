@@ -27,6 +27,11 @@ export const useNativeApp = () => {
     };
 
     initializeNativeApp();
+
+    if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'ios') {
+      document.documentElement.classList.add('native-ios');
+      return () => document.documentElement.classList.remove('native-ios');
+    }
   }, []);
 
   const showSplash = async () => {

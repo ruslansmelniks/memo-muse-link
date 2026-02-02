@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { User, Bell, Shield, Mic, Palette, HelpCircle, LogOut, Languages, AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { User, Bell, Shield, Palette, LogOut, Languages, AlertCircle, ChevronRight, Moon, Sun } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -8,13 +9,18 @@ import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useHaptics } from "@/hooks/useHaptics";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { toast } from "@/lib/nativeToast";
+import { useTheme } from "next-themes";
 
 export function SettingsView() {
   const { user, signOut } = useAuth();
   const { profile, updateProfile, getDisplayName, getAvatarUrl } = useProfile();
   const { isSupported, isSubscribed, permission, loading: pushLoading, subscribe, unsubscribe } = usePushNotifications();
+  const { theme, setTheme } = useTheme();
+  const haptics = useHaptics();
+  const navigate = useNavigate();
   const [preferredLanguage, setPreferredLanguage] = useState("auto");
   const [isLoading, setIsLoading] = useState(false);
   const [showProfileEditor, setShowProfileEditor] = useState(false);
@@ -77,25 +83,41 @@ export function SettingsView() {
   const avatarUrl = getAvatarUrl();
   const userEmail = user?.email || "Not signed in";
 
+  const handleSettingTap = (label: string) => {
+    haptics.selection();
+    
+    switch (label) {
+      case "Profile":
+        setShowProfileEditor(true);
+        break;
+      case "Appearance":
+        // Toggle theme
+        const newTheme = theme === "dark" ? "light" : "dark";
+        setTheme(newTheme);
+        toast.success(newTheme === "dark" ? "Dark mode" : "Light mode");
+        break;
+      case "Privacy Policy":
+        navigate("/privacy");
+        break;
+    }
+  };
+
   const settingsSections = [
     {
       title: "Account",
       items: [
         { icon: User, label: "Profile", description: "Manage your account details" },
-        { icon: Shield, label: "Privacy", description: "Control who can see your memos" },
+        { icon: Shield, label: "Privacy Policy", description: "How we handle your data" },
       ],
     },
     {
-      title: "Recording",
+      title: "Preferences",
       items: [
-        { icon: Mic, label: "Audio Quality", description: "High quality recording" },
-        { icon: Palette, label: "Appearance", description: "Theme and display settings" },
-      ],
-    },
-    {
-      title: "Support",
-      items: [
-        { icon: HelpCircle, label: "Help Center", description: "FAQs and tutorials" },
+        { 
+          icon: theme === "dark" ? Moon : Sun, 
+          label: "Appearance", 
+          description: theme === "dark" ? "Dark mode enabled" : "Light mode enabled"
+        },
       ],
     },
   ];
@@ -222,7 +244,8 @@ export function SettingsView() {
                 return (
                   <button
                     key={item.label}
-                    className="w-full flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors text-left"
+                    onClick={() => handleSettingTap(item.label)}
+                    className="w-full flex items-center gap-4 p-4 hover:bg-muted/50 active:bg-muted/70 transition-colors text-left"
                   >
                     <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
                       <Icon className="h-5 w-5 text-muted-foreground" />
@@ -231,6 +254,7 @@ export function SettingsView() {
                       <p className="font-medium text-foreground">{item.label}</p>
                       <p className="text-sm text-muted-foreground">{item.description}</p>
                     </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground/50" />
                   </button>
                 );
               })}

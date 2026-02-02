@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, Compass, Inbox, FolderOpen, Settings } from "lucide-react";
+import { Mic, Compass, Inbox, FolderOpen, Settings, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useHaptics } from "@/hooks/useHaptics";
 import { FEATURE_FLAGS } from "@/lib/featureFlags";
@@ -13,6 +13,7 @@ interface TabNavigationProps {
 
 const allTabs = [
   { id: "record", icon: Mic, label: "Record" },
+  { id: "search", icon: Search, label: "Search" },
   { id: "discover", icon: Compass, label: "Discover" },
   { id: "inbox", icon: Inbox, label: "Inbox" },
   { id: "library", icon: FolderOpen, label: "Library" },
@@ -21,7 +22,7 @@ const allTabs = [
 
 // Filter tabs based on feature flag
 const tabs = FEATURE_FLAGS.CORE_FEATURES_ONLY
-  ? allTabs.filter(tab => ["record", "library", "settings"].includes(tab.id))
+  ? allTabs.filter(tab => ["record", "search", "library", "settings"].includes(tab.id))
   : allTabs;
 
 // iOS spring animation config
@@ -32,16 +33,16 @@ const springConfig = {
   mass: 0.8,
 };
 
-// Bounce animation for active tab - more pronounced
+// Subtle iOS-style bounce for active tab
 const bounceTransition = {
   type: "spring" as const,
-  stiffness: 600,
-  damping: 12,
-  mass: 0.4,
+  stiffness: 520,
+  damping: 18,
+  mass: 0.6,
 };
 
 const tapAnimation = {
-  scale: 0.85,
+  scale: 0.92,
 };
 
 export function TabNavigation({ activeTab, onTabChange, inboxUnreadCount = 0 }: TabNavigationProps) {
@@ -66,23 +67,8 @@ export function TabNavigation({ activeTab, onTabChange, inboxUnreadCount = 0 }: 
   }, [bouncingTab]);
 
   return (
-    // iOS Tab Bar with frosted glass effect
-    <nav 
-      className="fixed bottom-0 left-0 right-0 pb-safe z-50"
-      style={{
-        // iOS-style frosted glass
-        background: 'rgba(255, 255, 255, 0.72)',
-        backdropFilter: 'saturate(180%) blur(20px)',
-        WebkitBackdropFilter: 'saturate(180%) blur(20px)',
-      }}
-    >
-      {/* iOS hairline separator */}
-      <div 
-        className="absolute top-0 left-0 right-0 h-px"
-        style={{
-          background: 'rgba(0, 0, 0, 0.12)',
-        }}
-      />
+    // iOS liquid glass tab bar
+    <nav className="fixed bottom-0 left-0 right-0 pb-safe z-50 ios-tab-bar">
       
       <div className="h-[49px] flex items-center justify-around px-2">
         {tabs.map((tab) => {
@@ -101,18 +87,20 @@ export function TabNavigation({ activeTab, onTabChange, inboxUnreadCount = 0 }: 
                 "flex flex-col items-center justify-center gap-0.5 flex-1 h-full relative",
                 "focus:outline-none focus-visible:outline-none"
               )}
+              type="button"
+              aria-label={tab.label}
             >
               <motion.div 
                 className="relative"
                 animate={{ 
-                  scale: isBouncing ? [1, 1.25, 0.95, 1.05, 1] : 1,
-                  y: isActive ? -1 : 0 
+                  scale: isBouncing ? [1, 1.08, 0.98, 1.02, 1] : 1,
+                  y: isActive ? -0.5 : 0 
                 }}
                 transition={isBouncing ? bounceTransition : springConfig}
               >
                 <motion.div
                   animate={{ 
-                    color: isActive ? 'hsl(var(--primary))' : 'rgba(142, 142, 147, 1)'
+                    color: isActive ? 'var(--ios-tab-active)' : 'var(--ios-tab-inactive)'
                   }}
                   transition={{ duration: 0.2 }}
                 >
@@ -154,7 +142,7 @@ export function TabNavigation({ activeTab, onTabChange, inboxUnreadCount = 0 }: 
                   isActive ? "font-semibold" : "font-medium"
                 )}
                 animate={{ 
-                  color: isActive ? 'hsl(var(--primary))' : 'rgba(142, 142, 147, 1)'
+                  color: isActive ? 'var(--ios-tab-active)' : 'var(--ios-tab-inactive)'
                 }}
                 transition={{ duration: 0.2 }}
               >

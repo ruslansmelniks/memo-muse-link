@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { motion, PanInfo, useDragControls } from "framer-motion";
 import { X, Sparkles, Loader2, Mic, Brain, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -9,7 +10,7 @@ import { ShareRecipientPicker } from "@/components/ShareRecipientPicker";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "sonner";
+import { toast } from "@/lib/nativeToast";
 import { MemoVisibility, ShareRecipient } from "@/hooks/useMemoSharing";
 import { FEATURE_FLAGS } from "@/lib/featureFlags";
 
@@ -48,6 +49,14 @@ export function RecordingModal({
   const [showFolderModal, setShowFolderModal] = useState(false);
   const [isSavingFolder, setIsSavingFolder] = useState(false);
   const { user } = useAuth();
+  const dragControls = useDragControls();
+
+  const setNativeTabBarHidden = (hidden: boolean) => {
+    const nativeTabs = (window as typeof window & {
+      Capacitor?: { Plugins?: { NativeTabs?: { setHidden?: (opts: { hidden: boolean }) => void } } }
+    }).Capacitor?.Plugins?.NativeTabs;
+    nativeTabs?.setHidden?.({ hidden });
+  };
 
   // Reset state when modal opens
   useEffect(() => {
@@ -58,7 +67,15 @@ export function RecordingModal({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    setNativeTabBarHidden(true);
+    return () => setNativeTabBarHidden(false);
+  }, [isOpen]);
+
+  console.log("[RecordingModal] render, isOpen:", isOpen);
   if (!isOpen) return null;
+  console.log("[RecordingModal] rendering modal content");
 
   const handleSave = () => {
     // Validate shared visibility has recipients
@@ -109,16 +126,48 @@ export function RecordingModal({
 
   const currentStepIndex = PROCESSING_STEPS.findIndex(s => s.key === processingStep);
 
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+    if (isProcessing) return;
+    if (info.offset.y > 120 || info.velocity.y > 1000) {
+      onClose();
+    }
+  };
+
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+      <div className="fixed inset-0 z-[100] flex items-end justify-center">
         <div 
-          className="absolute inset-0 bg-foreground/20 backdrop-blur-sm"
+          className="absolute inset-0 bg-foreground/30 backdrop-blur-sm z-0"
           onClick={isProcessing ? undefined : onClose}
         />
         
-        <div className="relative w-full max-w-lg glass-card rounded-t-3xl sm:rounded-3xl p-6 animate-slide-up">
-          <div className="flex items-center justify-between mb-6">
+        <motion.div
+          className="relative z-10 w-full bg-background rounded-t-[28px] shadow-2xl max-h-[85vh] flex flex-col overflow-visible pointer-events-auto"
+          drag={isProcessing ? false : "y"}
+          dragControls={dragControls}
+          dragListener={false}
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0.05, bottom: 0.2 }}
+          onDragEnd={handleDragEnd}
+          initial={{ y: "100%" }}
+          animate={{ y: 0 }}
+          exit={{ y: "100%" }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        >
+          {/* Drag handle */}
+          <div className="pt-3 pb-2 flex-shrink-0">
+            <div
+              className="mx-auto h-1.5 w-10 rounded-full bg-foreground/20 touch-manipulation"
+              onPointerDown={(event) => {
+                if (!isProcessing) {
+                  dragControls.start(event);
+                }
+              }}
+            />
+          </div>
+          
+          {/* Fixed header */}
+          <div className="flex items-center justify-between px-6 pb-4 flex-shrink-0 border-b border-border/30">
             <h2 className="font-display font-semibold text-xl">
               {isProcessing ? "Processing Recording" : "Save Recording"}
             </h2>
@@ -128,6 +177,9 @@ export function RecordingModal({
               </Button>
             )}
           </div>
+          
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 overscroll-contain relative z-[110]">
 
           {isProcessing ? (
             <div className="py-8">
@@ -260,19 +312,25 @@ export function RecordingModal({
                   </div>
                 )}
               </div>
-
-              <div className="mt-6 flex gap-3">
-                <Button variant="glass" className="flex-1" onClick={onClose}>
+            </>
+          )}
+          </div>
+          
+          {/* Fixed footer with actions - extra padding to clear native tab bar */}
+          {!isProcessing && (
+            <div className="flex-shrink-0 px-6 pt-4 pb-[100px] border-t border-border/30 bg-background">
+              <div className="flex gap-3">
+                <Button variant="glass" className="flex-1 h-12" onClick={onClose}>
                   Cancel
                 </Button>
-                <Button variant="hero" className="flex-1" onClick={handleSave}>
+                <Button variant="hero" className="flex-1 h-12" onClick={handleSave}>
                   <Sparkles className="h-4 w-4 mr-2" />
                   Process & Save
                 </Button>
               </div>
-            </>
+            </div>
           )}
-        </div>
+        </motion.div>
       </div>
 
       {/* Folder Creation Modal */}
