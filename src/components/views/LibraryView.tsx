@@ -460,6 +460,13 @@ export function LibraryView() {
       return;
     }
 
+    // Get the user's session token
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      toast.error("Please sign in to use this feature");
+      return;
+    }
+
     setSummarizingFolder(folder);
     setFolderSummary(null);
     setShowSummaryModal(true);
@@ -482,7 +489,7 @@ export function LibraryView() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
           body: JSON.stringify(payload),
         }
