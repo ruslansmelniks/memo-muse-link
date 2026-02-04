@@ -6,8 +6,8 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, children }: PageHeaderProps) {
   return (
-    <div className="mb-10 animate-fade-in">
-      <h2 className="font-display text-3xl font-bold text-foreground mb-3">
+    <div className="mb-6 animate-fade-in">
+      <h2 className="font-display text-3xl font-bold text-foreground mb-2">
         {title}
       </h2>
       {subtitle && (

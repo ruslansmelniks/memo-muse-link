@@ -552,7 +552,7 @@ export function LibraryView() {
     <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div 
         ref={containerRef}
-        className="container mx-auto px-4 py-6 pb-36 relative h-full overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch"
+        className="container mx-auto px-4 pt-2 pb-36 relative h-full overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch"
         style={{ 
           transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
           transition: pullDistance === 0 ? 'transform 0.2s ease-out' : undefined,
