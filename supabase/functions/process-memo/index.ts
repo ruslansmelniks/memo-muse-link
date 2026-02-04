@@ -31,19 +31,31 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     
     const token = authHeader.replace("Bearer ", "");
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } }
-    });
     
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Allow service role key for internal calls (from background-transcribe)
+    const isServiceRoleCall = token === supabaseServiceKey;
     
-    if (authError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized - please sign in" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!isServiceRoleCall) {
+      // For user calls, validate the JWT
+      const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: `Bearer ${token}` } }
+      });
+      
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized - please sign in" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      console.log(`Processing memo for user ${user.id}`);
+    } else {
+      console.log("Processing memo via service role (internal call)");
     }
 
     const { transcript, language } = await req.json();
@@ -79,7 +91,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log(`Processing memo for user ${user.id}, transcript length: ${trimmedTranscript.length}`);
+    console.log(`Processing transcript, length: ${trimmedTranscript.length} chars`);
 
     const isAutoDetect = validLanguage === "auto";
     

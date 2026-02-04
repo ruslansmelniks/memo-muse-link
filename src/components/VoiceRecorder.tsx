@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, Square, Pause, Play, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { SiriWaveform } from "@/components/SiriWaveform";
 import { useHaptics } from "@/hooks/useHaptics";
 import { toast } from "@/lib/nativeToast";
 import { LanguageSelector, SUPPORTED_LANGUAGES } from "@/components/LanguageSelector";
@@ -27,7 +27,7 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [duration, setDuration] = useState(0);
-  const [audioLevels, setAudioLevels] = useState<number[]>(Array(12).fill(0.2));
+  const [audioLevel, setAudioLevel] = useState(0);
   const [selectedLanguage, setSelectedLanguage] = useState(initialLanguage);
   const [showCompletionFeedback, setShowCompletionFeedback] = useState(false);
   const [showCancelFeedback, setShowCancelFeedback] = useState(false);
@@ -88,13 +88,13 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
     const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
     analyserRef.current.getByteFrequencyData(dataArray);
     
-    const levels = [];
-    const step = Math.floor(dataArray.length / 12);
-    for (let i = 0; i < 12; i++) {
-      const value = dataArray[i * step] / 255;
-      levels.push(Math.max(0.15, value));
+    // Calculate average level across all frequency bins
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      sum += dataArray[i];
     }
-    setAudioLevels(levels);
+    const average = sum / dataArray.length / 255;
+    setAudioLevel(Math.max(0.05, average));
     
     animationRef.current = requestAnimationFrame(updateAudioLevels);
   };
@@ -233,7 +233,7 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       setIsPaused(false);
       isPausedRef.current = false;
       setDuration(0);
-      setAudioLevels(Array(12).fill(0.2));
+      setAudioLevel(0);
       audioChunksRef.current = [];
     }
   };
@@ -275,7 +275,7 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       setIsPaused(false);
       isPausedRef.current = false;
       setDuration(0);
-      setAudioLevels(Array(12).fill(0.2));
+      setAudioLevel(0);
       audioChunksRef.current = [];
     }
   };
@@ -324,8 +324,8 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
           />
         </div>
 
-        {/* Audio Visualizer with Listening indicator */}
-        <div className="flex items-center justify-center gap-1.5 h-16 relative">
+        {/* Siri-style Audio Visualizer */}
+        <div className="w-full h-20 relative">
           <AnimatePresence mode="wait">
             {isInitializing ? (
               <motion.div
@@ -349,37 +349,12 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
                 key="waveform"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex items-center justify-center gap-1.5 h-full"
+                className="w-full h-full"
               >
-                {audioLevels.map((level, i) => (
-                  <motion.div
-                    key={i}
-                    className={cn(
-                      "w-1.5 rounded-full",
-                      isRecording && !isPaused 
-                        ? "bg-gradient-to-t from-primary/60 to-primary" 
-                        : "bg-muted-foreground/20"
-                    )}
-                    initial={{ height: "15%" }}
-                    animate={{ 
-                      height: isRecording && !isPaused 
-                        ? `${Math.max(15, level * 100)}%` 
-                        : "15%",
-                      scaleY: isRecording && !isPaused ? [1, 1.1, 1] : 1,
-                    }}
-                    transition={{
-                      height: { duration: 0.08, ease: "easeOut" },
-                      scaleY: { 
-                        duration: 0.3 + (i * 0.02), 
-                        repeat: isRecording && !isPaused ? Infinity : 0,
-                        ease: "easeInOut"
-                      }
-                    }}
-                    style={{
-                      originY: 0.5,
-                    }}
-                  />
-                ))}
+                <SiriWaveform 
+                  isActive={isRecording && !isPaused} 
+                  audioLevel={audioLevel} 
+                />
               </motion.div>
             )}
           </AnimatePresence>
