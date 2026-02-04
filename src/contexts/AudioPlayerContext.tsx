@@ -35,7 +35,7 @@ interface AudioPlayerContextType {
 
 const AudioPlayerContext = createContext<AudioPlayerContextType | null>(null);
 
-const PLAYBACK_SPEEDS = [1, 1.2, 1.5, 2];
+const PLAYBACK_SPEEDS = [1, 1.25, 1.5, 2];
 
 export function AudioPlayerProvider({ children }: { children: ReactNode }) {
   const [currentTrack, setCurrentTrack] = useState<AudioTrack | null>(null);

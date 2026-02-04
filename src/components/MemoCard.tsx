@@ -122,10 +122,13 @@ const iconComponents: Record<FolderIconType, React.ElementType> = {
   coffee: Coffee,
 };
 
+const PLAYBACK_SPEEDS = [1, 1.25, 1.5, 2];
+
 export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, onMoveToFolder, onUpdateVisibility, onCreateFolder, onRetryTranscription, folders = [], canDelete = false }: MemoCardProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(memo.duration);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showTranscriptDialog, setShowTranscriptDialog] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -204,6 +207,16 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
+
+  const cyclePlaybackSpeed = useCallback(() => {
+    const currentIndex = PLAYBACK_SPEEDS.indexOf(playbackSpeed);
+    const nextIndex = (currentIndex + 1) % PLAYBACK_SPEEDS.length;
+    const nextSpeed = PLAYBACK_SPEEDS[nextIndex];
+    setPlaybackSpeed(nextSpeed);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = nextSpeed;
+    }
+  }, [playbackSpeed]);
 
   const formatTimeAgo = (date: Date) => {
     const now = new Date();
@@ -338,8 +351,9 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
         
         console.log("Playing audio from:", freshUrl.substring(0, 80));
         
-        // Set the fresh URL
+        // Set the fresh URL and playback speed
         audio.src = freshUrl;
+        audio.playbackRate = playbackSpeed;
         audio.load();
         
         // Wait for audio to be ready (with timeout)
@@ -660,6 +674,13 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
                   onSeek={handleSeek}
                 />
               </div>
+              
+              <button
+                onClick={cyclePlaybackSpeed}
+                className="px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground active:text-foreground transition-colors flex-shrink-0"
+              >
+                {playbackSpeed}x
+              </button>
               
               <div className="text-xs text-muted-foreground font-medium flex-shrink-0">
                 {formatDuration(currentTime)} / {formatDuration(audioDuration)}
