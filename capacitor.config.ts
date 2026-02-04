@@ -3,8 +3,8 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const serverUrl = process.env.CAPACITOR_SERVER_URL;
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.a0943448b6fc47fd8aeb0f829a106fdd',
-  appName: 'Mindflow',
+  appId: 'app.thoughtspark',
+  appName: 'ThoughtSpark',
   webDir: 'dist',
   ...(serverUrl
     ? {

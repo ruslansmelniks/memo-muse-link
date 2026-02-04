@@ -1,18 +1,18 @@
-# Mindflow - App Store Submission Assets
+# ThoughtSpark - App Store Submission Assets
 
 ## App Information
 
 ### App Name
-**Mindflow - Voice Notes**
+**ThoughtSpark - Voice Notes**
 
 ### Subtitle (30 characters max)
-**Voice notes, organized by AI**
+**Capture thoughts with AI**
 
 ### Promotional Text (170 characters max)
 Record your thoughts instantly. Get AI-powered summaries, smart categorization, and searchable transcripts. Your voice, your ideas—beautifully organized.
 
 ### Description
-Mindflow transforms how you capture and organize your thoughts. Simply speak, and let AI do the rest.
+ThoughtSpark transforms how you capture and organize your thoughts. Simply speak, and let AI do the rest.
 
 **✨ INSTANT VOICE RECORDING**
 Tap once to start recording. Your ideas flow naturally without typing. Perfect for capturing thoughts on the go, meeting notes, creative ideas, or personal reflections.
@@ -42,12 +42,12 @@ Your thoughts are yours. End-to-end security ensures your voice memos stay priva
 • Professionals documenting meeting notes
 • Anyone who thinks faster than they type
 
-Download Mindflow today and never lose a brilliant idea again.
+Download ThoughtSpark today and never lose a brilliant idea again.
 
 ---
 
 ### Keywords (100 characters max)
-voice memo,notes,recording,transcription,AI,summary,organize,audio,dictation,speech to text,ideas
+voice memo,notes,recording,transcription,AI,thoughts,ideas,audio,speech to text,organize
 
 ### Categories
 - Primary: Productivity
@@ -139,7 +139,7 @@ voice memo,notes,recording,transcription,AI,summary,organize,audio,dictation,spe
 ## What's New (Version Notes)
 
 **Version 1.0**
-Welcome to Mindflow! 🎉
+Welcome to ThoughtSpark! 🎉
 
 • Instant voice recording with one tap
 • AI-powered transcription and summaries

@@ -17,9 +17,9 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["favicon.ico", "robots.txt"],
       manifest: {
-        name: "Mindflow - Voice Notes",
-        short_name: "Mindflow",
-        description: "Voice notes, organized. Record thoughts, get AI summaries.",
+        name: "ThoughtSpark - Voice Notes",
+        short_name: "ThoughtSpark",
+        description: "Voice notes, organized. Capture thoughts with AI.",
         theme_color: "#1a1a2e",
         background_color: "#1a1a2e",
         display: "standalone",

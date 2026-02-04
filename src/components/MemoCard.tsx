@@ -7,6 +7,7 @@ import { AudioWaveform } from "@/components/AudioWaveform";
 import { VisibilityIcon } from "@/components/VisibilitySelector";
 import { ShareVisibilityModal } from "@/components/ShareVisibilityModal";
 import { MemoVisibility, ShareRecipient } from "@/hooks/useMemoSharing";
+import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +39,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/nativeToast";
 import { Folder, FOLDER_COLORS, FolderIcon as FolderIconType } from "@/types/folder";
+import { Capacitor } from "@capacitor/core";
 import { 
   Folder as FolderIconLucide, 
   Briefcase, 
@@ -225,9 +227,7 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
       // iOS Safari specific attributes for better playback support
       audio.setAttribute('playsinline', 'true');
       audio.setAttribute('webkit-playsinline', 'true');
-      audio.preload = "auto"; // Use auto instead of metadata for iOS
-      audio.crossOrigin = "anonymous"; // Allow cross-origin if needed
-      audio.src = memo.audioUrl;
+      audio.preload = "metadata";
       
       audio.ontimeupdate = () => {
         setCurrentTime(audio.currentTime);
@@ -238,15 +238,16 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
         }
       };
       audio.oncanplaythrough = () => {
-        // Audio is ready to play without buffering
         console.log("Audio ready to play");
       };
       audio.onended = () => {
         setIsPlaying(false);
         setCurrentTime(0);
       };
-      audio.onerror = (e) => {
-        console.error("Audio error:", e, audio.error);
+      audio.onerror = () => {
+        const errorCode = audio.error?.code;
+        const errorMessage = audio.error?.message || "Unknown error";
+        console.error("Audio error code:", errorCode, "message:", errorMessage, "src:", audio.src?.substring(0, 100));
         setIsPlaying(false);
       };
       audio.onstalled = () => {
@@ -254,17 +255,64 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
         audio.load();
       };
       
-      // Explicitly load the audio
-      audio.load();
-      
       audioRef.current = audio;
     }
     
     return audioRef.current;
   }, [memo.audioUrl]);
 
+  // Check if format is supported on iOS
+  const isFormatSupportedOnIOS = (url: string): boolean => {
+    // Extract filename from URL (before query params)
+    const urlPath = url.split('?')[0].toLowerCase();
+    // iOS Safari supports: mp3, m4a, aac, wav, aiff, mp4 (audio)
+    // iOS Safari does NOT support: webm, ogg
+    const unsupportedExtensions = ['.webm', '.ogg', '.opus'];
+    return !unsupportedExtensions.some(ext => urlPath.endsWith(ext));
+  };
+
+  // Get a fresh signed URL for audio playback
+  const getFreshAudioUrl = async (originalUrl: string): Promise<string | null> => {
+    try {
+      // Extract the path from the URL
+      // URLs look like: https://xxx.supabase.co/storage/v1/object/public/audio-memos/path
+      // or: https://xxx.supabase.co/storage/v1/object/sign/audio-memos/path?token=xxx
+      const audioMemosMatch = originalUrl.match(/audio-memos\/(.+?)(?:\?|$)/);
+      if (!audioMemosMatch) {
+        console.log("Could not extract path from URL, using original:", originalUrl.substring(0, 80));
+        return originalUrl;
+      }
+      
+      const path = decodeURIComponent(audioMemosMatch[1]);
+      console.log("Getting fresh signed URL for path:", path);
+      
+      // Get a fresh signed URL (valid for 1 hour)
+      const { data, error } = await supabase.storage
+        .from("audio-memos")
+        .createSignedUrl(path, 3600);
+      
+      if (error) {
+        console.error("Error getting signed URL:", error);
+        // Try public URL as fallback
+        const { data: publicData } = supabase.storage
+          .from("audio-memos")
+          .getPublicUrl(path);
+        return publicData?.publicUrl || originalUrl;
+      }
+      
+      console.log("Got fresh signed URL");
+      return data.signedUrl;
+    } catch (e) {
+      console.error("Error in getFreshAudioUrl:", e);
+      return originalUrl;
+    }
+  };
+
   const togglePlayback = async () => {
-    if (!memo.audioUrl) return;
+    if (!memo.audioUrl) {
+      toast.error("No audio available");
+      return;
+    }
 
     const audio = initAudio();
     if (!audio) return;
@@ -274,55 +322,63 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
       setIsPlaying(false);
     } else {
       try {
-        // iOS Safari fix: Always ensure audio source is set and loaded
-        if (!audio.src || audio.src !== memo.audioUrl) {
-          audio.src = memo.audioUrl;
+        // Get a fresh signed URL to avoid expiration issues
+        const freshUrl = await getFreshAudioUrl(memo.audioUrl);
+        if (!freshUrl) {
+          toast.error("Could not load audio");
+          return;
         }
         
-        // Force load on iOS - required for reliable playback
-        if (audio.readyState < 3) {
-          audio.load();
-          // Wait for the audio to be ready to play
-          await new Promise<void>((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              resolve(); // Proceed anyway after timeout
-            }, 3000);
-            
-            const handleCanPlay = () => {
-              clearTimeout(timeout);
-              audio.removeEventListener('canplaythrough', handleCanPlay);
-              audio.removeEventListener('error', handleError);
-              resolve();
-            };
-            
-            const handleError = (e: Event) => {
-              clearTimeout(timeout);
-              audio.removeEventListener('canplaythrough', handleCanPlay);
-              audio.removeEventListener('error', handleError);
-              reject(e);
-            };
-            
-            audio.addEventListener('canplaythrough', handleCanPlay, { once: true });
-            audio.addEventListener('error', handleError, { once: true });
-          });
+        // Check if format is supported on iOS
+        if (Capacitor.isNativePlatform() && !isFormatSupportedOnIOS(freshUrl)) {
+          console.log("Unsupported format on iOS:", freshUrl);
+          toast.error("This audio format isn't supported on iOS. Re-record the memo to fix.");
+          return;
         }
         
+        console.log("Playing audio from:", freshUrl.substring(0, 80));
+        
+        // Set the fresh URL
+        audio.src = freshUrl;
+        audio.load();
+        
+        // Wait for audio to be ready (with timeout)
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            console.log("Audio load timeout, proceeding anyway");
+            resolve();
+          }, 5000);
+          
+          const handleCanPlay = () => {
+            clearTimeout(timeout);
+            cleanup();
+            resolve();
+          };
+          
+          const handleError = () => {
+            clearTimeout(timeout);
+            cleanup();
+            const errorMsg = audio.error?.message || "Load error";
+            reject(new Error(errorMsg));
+          };
+          
+          const cleanup = () => {
+            audio.removeEventListener('canplay', handleCanPlay);
+            audio.removeEventListener('canplaythrough', handleCanPlay);
+            audio.removeEventListener('error', handleError);
+          };
+          
+          audio.addEventListener('canplay', handleCanPlay);
+          audio.addEventListener('canplaythrough', handleCanPlay);
+          audio.addEventListener('error', handleError);
+        });
+        
+        // Attempt playback
         await audio.play();
         setIsPlaying(true);
       } catch (error) {
         console.error("Playback error:", error);
-        // iOS may need a second attempt with fresh load
-        try {
-          audio.currentTime = 0;
-          audio.load();
-          await new Promise(resolve => setTimeout(resolve, 100));
-          await audio.play();
-          setIsPlaying(true);
-        } catch (retryError) {
-          console.error("Retry playback failed:", retryError);
-          // Show user-friendly error
-          toast.error("Unable to play audio. Please try again.");
-        }
+        toast.error("Unable to play audio");
       }
     }
   };

@@ -1,4 +1,4 @@
-# Mindflow App Architecture
+# ThoughtSpark App Architecture
 
 > **For Superapp iOS Recreation** - Complete technical specification for rebuilding this PWA as a native iOS app.
 
@@ -8,7 +8,7 @@
 
 | Property | Value |
 |----------|-------|
-| **App Name** | Mindflow |
+| **App Name** | ThoughtSpark |
 | **Purpose** | Voice memo recording with AI transcription and summarization |
 | **Platform** | Mobile-first PWA (React), targeting iOS recreation |
 | **Current Mode** | Core Features Only (social features disabled via feature flags) |
@@ -634,8 +634,8 @@ export const FEATURES = {
 
 ```typescript
 {
-  appId: 'com.mindflow.app',
-  appName: 'Mindflow',
+  appId: 'app.thoughtspark',
+  appName: 'ThoughtSpark',
   webDir: 'dist',
   plugins: {
     SplashScreen: { ... },

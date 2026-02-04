@@ -1,6 +1,7 @@
 import UIKit
 import Capacitor
 import AVFoundation
+import MediaPlayer
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -17,17 +18,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         do {
             let audioSession = AVAudioSession.sharedInstance()
             // Set category to playAndRecord to support both recording and playback
-            // .mixWithOthers allows other apps' audio to continue
             // .allowBluetooth enables Bluetooth headset microphones
-            // .defaultToSpeaker routes audio to speaker when no headphones
+            // .defaultToSpeaker routes audio to speaker when no headphones (important for playback)
             try audioSession.setCategory(
                 .playAndRecord,
-                mode: .default,
-                options: [.mixWithOthers, .allowBluetooth, .defaultToSpeaker]
+                mode: .spokenAudio,
+                options: [.allowBluetooth, .defaultToSpeaker, .allowAirPlay]
             )
             // Activate the session
-            try audioSession.setActive(true)
-            print("[AudioSession] Configured for background recording")
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+            print("[AudioSession] Configured for background recording and playback")
         } catch {
             print("[AudioSession] Failed to configure: \(error.localizedDescription)")
         }
@@ -75,6 +75,7 @@ final class NativeTabsViewController: CAPBridgeViewController, UITabBarDelegate 
         bridge?.registerPluginInstance(NativeToastPlugin())
         bridge?.registerPluginInstance(NativeTabsPlugin())
         bridge?.registerPluginInstance(NativeSaveSheetPlugin())
+        bridge?.registerPluginInstance(NativeRecordingPlugin())
     }
 
     override func viewDidLayoutSubviews() {
@@ -530,6 +531,123 @@ private final class SaveRecordingSheetViewController: UIViewController {
     }
 }
 
+// MARK: - Native Recording Plugin (Now Playing / Lock Screen)
+
+@objc(NativeRecordingPlugin)
+public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "NativeRecordingPlugin"
+    public let jsName = "NativeRecording"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "startRecording", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "stopRecording", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "updateDuration", returnType: CAPPluginReturnPromise)
+    ]
+    
+    private var recordingStartTime: Date?
+    private var durationTimer: Timer?
+    
+    @objc func startRecording(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.recordingStartTime = Date()
+            self.setupNowPlaying()
+            self.setupRemoteCommands()
+            self.startDurationTimer()
+            call.resolve()
+        }
+    }
+    
+    @objc func stopRecording(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            self.clearNowPlaying()
+            self.recordingStartTime = nil
+            self.durationTimer?.invalidate()
+            self.durationTimer = nil
+            call.resolve()
+        }
+    }
+    
+    @objc func updateDuration(_ call: CAPPluginCall) {
+        let duration = call.getDouble("duration") ?? 0
+        DispatchQueue.main.async {
+            self.updateNowPlayingDuration(duration)
+            call.resolve()
+        }
+    }
+    
+    private func setupNowPlaying() {
+        var nowPlayingInfo: [String: Any] = [
+            MPMediaItemPropertyTitle: "Recording memo...",
+            MPMediaItemPropertyArtist: "ThoughtSpark",
+            MPMediaItemPropertyAlbumTitle: "Tap to return to app",
+            MPNowPlayingInfoPropertyIsLiveStream: true,
+            MPNowPlayingInfoPropertyPlaybackRate: 1.0,
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: 0.0
+        ]
+        
+        // Add app icon as artwork
+        if let appIcon = UIImage(named: "AppIcon") ?? UIImage(named: "AppIcon60x60") {
+            let artwork = MPMediaItemArtwork(boundsSize: appIcon.size) { _ in appIcon }
+            nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
+        } else if let iconImage = UIApplication.shared.icon {
+            let artwork = MPMediaItemArtwork(boundsSize: iconImage.size) { _ in iconImage }
+            nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
+        }
+        
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+        
+        // Make app become now playing
+        UIApplication.shared.beginReceivingRemoteControlEvents()
+    }
+    
+    private func updateNowPlayingDuration(_ duration: Double) {
+        var nowPlayingInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
+        nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = duration
+        
+        let minutes = Int(duration) / 60
+        let seconds = Int(duration) % 60
+        nowPlayingInfo[MPMediaItemPropertyTitle] = String(format: "Recording %d:%02d", minutes, seconds)
+        
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+    }
+    
+    private func startDurationTimer() {
+        durationTimer?.invalidate()
+        durationTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            guard let self = self, let startTime = self.recordingStartTime else { return }
+            let elapsed = Date().timeIntervalSince(startTime)
+            self.updateNowPlayingDuration(elapsed)
+        }
+    }
+    
+    private func setupRemoteCommands() {
+        let commandCenter = MPRemoteCommandCenter.shared()
+        
+        // Handle play/pause - this allows user to tap on lock screen to return to app
+        commandCenter.togglePlayPauseCommand.isEnabled = true
+        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
+            // Notify JS to toggle recording
+            let js = "window.dispatchEvent(new CustomEvent('nativeRecordingToggle'))"
+            self?.bridge?.webView?.evaluateJavaScript(js, completionHandler: nil)
+            return .success
+        }
+        
+        // Disable other controls
+        commandCenter.playCommand.isEnabled = false
+        commandCenter.pauseCommand.isEnabled = false
+        commandCenter.stopCommand.isEnabled = false
+        commandCenter.nextTrackCommand.isEnabled = false
+        commandCenter.previousTrackCommand.isEnabled = false
+    }
+    
+    private func clearNowPlaying() {
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+        UIApplication.shared.endReceivingRemoteControlEvents()
+        
+        let commandCenter = MPRemoteCommandCenter.shared()
+        commandCenter.togglePlayPauseCommand.removeTarget(nil)
+    }
+}
+
 // MARK: - Extensions
 
 private extension String {
@@ -550,5 +668,15 @@ private extension UIFont {
             UIFontDescriptor.AttributeName.traits: traits
         ])
         return UIFont(descriptor: descriptor, size: pointSize)
+    }
+}
+
+extension UIApplication {
+    var icon: UIImage? {
+        guard let iconsDictionary = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
+              let primaryIconsDictionary = iconsDictionary["CFBundlePrimaryIcon"] as? [String: Any],
+              let iconFiles = primaryIconsDictionary["CFBundleIconFiles"] as? [String],
+              let lastIcon = iconFiles.last else { return nil }
+        return UIImage(named: lastIcon)
     }
 }

@@ -131,11 +131,25 @@ export function InboxRecordingSheet({
       let audioUrl: string | null = null;
       
       if (currentAudioBlob) {
-        const fileName = `${user.id}/memo-${Date.now()}.webm`;
+        // Determine file extension based on blob MIME type
+        const mimeType = currentAudioBlob.type || "audio/mp4";
+        let extension = ".m4a"; // Default to m4a (iOS compatible)
+        if (mimeType.includes("webm")) {
+          extension = ".webm";
+        } else if (mimeType.includes("mp4") || mimeType.includes("aac") || mimeType.includes("m4a")) {
+          extension = ".m4a";
+        } else if (mimeType.includes("mp3") || mimeType.includes("mpeg")) {
+          extension = ".mp3";
+        } else if (mimeType.includes("wav")) {
+          extension = ".wav";
+        }
+        console.log("Uploading audio with MIME:", mimeType, "extension:", extension);
+        
+        const fileName = `${user.id}/memo-${Date.now()}${extension}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("audio-memos")
           .upload(fileName, currentAudioBlob, {
-            contentType: "audio/webm",
+            contentType: mimeType,
           });
 
         if (uploadError) {

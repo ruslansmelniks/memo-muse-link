@@ -127,7 +127,7 @@ export function SettingsView() {
       {/* Header */}
       <PageHeader 
         title="Settings" 
-        subtitle="Customize your Mindflow experience"
+        subtitle="Customize your ThoughtSpark experience"
       />
 
       {/* Display Name Prompt */}

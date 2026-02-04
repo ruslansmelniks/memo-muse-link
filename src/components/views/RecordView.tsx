@@ -10,6 +10,7 @@ import { toast } from "@/lib/nativeToast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { MemoVisibility, ShareRecipient } from "@/hooks/useMemoSharing";
 import { LogIn } from "lucide-react";
 import { Folder } from "@/types/folder";
@@ -53,6 +54,7 @@ export function RecordView() {
   
   const { user } = useAuth();
   const { getDisplayName, getAvatarUrl } = useProfile();
+  const { isOnline } = useOnlineStatus();
 
   useEffect(() => {
     if (user) {
@@ -179,6 +181,12 @@ export function RecordView() {
   };
 
   const handleSave = async (data: { title: string; visibility: 'private' | 'shared' | 'followers' | 'void'; folderId: string | null; recipients?: Array<{ type: 'user' | 'group'; id: string; name: string }> }) => {
+    // Check network connectivity first
+    if (!isOnline) {
+      toast.error("You're offline - connect to save");
+      return;
+    }
+
     if (!user) {
       toast.error("Please sign in to save memos");
       return;

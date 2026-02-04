@@ -6,6 +6,16 @@ import { cn } from "@/lib/utils";
 import { useHaptics } from "@/hooks/useHaptics";
 import { toast } from "@/lib/nativeToast";
 import { LanguageSelector, SUPPORTED_LANGUAGES } from "@/components/LanguageSelector";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+
+// Native Recording plugin for lock screen indicator
+interface NativeRecordingPlugin {
+  startRecording(): Promise<void>;
+  stopRecording(): Promise<void>;
+  updateDuration(options: { duration: number }): Promise<void>;
+}
+
+const NativeRecording = registerPlugin<NativeRecordingPlugin>("NativeRecording");
 
 interface VoiceRecorderProps {
   onRecordingComplete: (transcript: string, duration: number, audioBlob: Blob | null, language: string) => void;
@@ -90,6 +100,9 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
   };
 
   const startRecording = async () => {
+    // Haptic feedback when starting recording
+    haptics.impact("medium");
+    
     try {
       // Show initializing state while accessing microphone
       setIsInitializing(true);
@@ -135,6 +148,15 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       isPausedRef.current = false;
       onRecordingStateChange?.(true);
       
+      // Notify native side for lock screen indicator (iOS only)
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await NativeRecording.startRecording();
+        } catch (e) {
+          console.log("Native recording indicator not available:", e);
+        }
+      }
+      
       // Brief delay before showing levels (let user see "Listening..." feedback)
       setTimeout(() => {
         setIsInitializing(false);
@@ -162,7 +184,7 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
     }
   };
 
-  const stopRecording = () => {
+  const stopRecording = async () => {
     console.log("[VoiceRecorder] stopRecording called, isRecording:", isRecording, "hasMediaRecorder:", !!mediaRecorderRef.current);
     haptics.notification("success");
     
@@ -173,6 +195,15 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       
       // Capture duration before we reset
       const finalDuration = duration;
+      
+      // Notify native side to clear lock screen indicator
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await NativeRecording.stopRecording();
+        } catch (e) {
+          console.log("Native recording stop not available:", e);
+        }
+      }
       
       mediaRecorderRef.current.onstop = () => {
         // Use the MIME type that was actually used for recording
@@ -207,13 +238,22 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
     }
   };
 
-  const cancelRecording = () => {
+  const cancelRecording = async () => {
     haptics.notification("warning");
     
     if (isRecording && mediaRecorderRef.current) {
       // Show cancel feedback
       setShowCancelFeedback(true);
       setTimeout(() => setShowCancelFeedback(false), 600);
+      
+      // Notify native side to clear lock screen indicator
+      if (Capacitor.isNativePlatform()) {
+        try {
+          await NativeRecording.stopRecording();
+        } catch (e) {
+          console.log("Native recording stop not available:", e);
+        }
+      }
       
       // Stop without triggering onstop handler
       mediaRecorderRef.current.onstop = null;

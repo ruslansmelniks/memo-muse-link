@@ -107,17 +107,21 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     const audio = audioRef.current;
     if (!audio) return;
 
+    // Validate URL
+    if (!track.audioUrl || (!track.audioUrl.startsWith('http') && !track.audioUrl.startsWith('blob:'))) {
+      console.error("Invalid audio URL:", track.audioUrl);
+      return;
+    }
+
     // If same track, just resume
-    if (currentTrack?.id === track.id && audio.src) {
+    if (currentTrack?.id === track.id && audio.src && !audio.error) {
       try {
         await audio.play();
+        return;
       } catch (error) {
         console.error("Resume playback error:", error);
-        // iOS fix: reload and try again
-        audio.load();
-        await audio.play().catch(console.error);
+        // Fall through to reload
       }
-      return;
     }
 
     // Load new track with iOS compatibility
@@ -128,18 +132,44 @@ export function AudioPlayerProvider({ children }: { children: ReactNode }) {
     // Explicitly load before playing (required for iOS Safari)
     audio.load();
     
+    // Wait for audio to be ready
     try {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(resolve, 5000);
+        
+        const handleCanPlay = () => {
+          clearTimeout(timeout);
+          cleanup();
+          resolve();
+        };
+        
+        const handleError = () => {
+          clearTimeout(timeout);
+          cleanup();
+          reject(new Error("Failed to load audio"));
+        };
+        
+        const cleanup = () => {
+          audio.removeEventListener('canplay', handleCanPlay);
+          audio.removeEventListener('error', handleError);
+        };
+        
+        audio.addEventListener('canplay', handleCanPlay);
+        audio.addEventListener('error', handleError);
+      });
+      
       await audio.play();
     } catch (error) {
       console.error("Playback error:", error);
       // Retry once after a short delay (iOS workaround)
-      setTimeout(async () => {
-        try {
-          await audio.play();
-        } catch (retryError) {
-          console.error("Retry playback failed:", retryError);
-        }
-      }, 100);
+      try {
+        audio.src = track.audioUrl;
+        audio.load();
+        await new Promise(resolve => setTimeout(resolve, 300));
+        await audio.play();
+      } catch (retryError) {
+        console.error("Retry playback failed:", retryError);
+      }
     }
   }, [currentTrack, playbackSpeed]);
 
