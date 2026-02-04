@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AudioPlayerProvider } from "@/contexts/AudioPlayerContext";
 import { MiniAudioPlayer } from "@/components/MiniAudioPlayer";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { useNativeApp } from "@/hooks/useNativeApp";
 import Index from "./pages/Index";
 import MemoPage from "./pages/MemoPage";
@@ -22,6 +23,7 @@ const AppContent = () => {
   
   return (
     <>
+      <OfflineBanner />
       <Toaster />
       <Sonner />
       <BrowserRouter>

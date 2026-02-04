@@ -414,6 +414,44 @@ export function LibraryView() {
     }
   };
 
+  const handleRetryTranscription = async (memoId: string) => {
+    const memo = memos.find(m => m.id === memoId);
+    if (!memo?.audioUrl) {
+      toast.error("No audio available for transcription");
+      return;
+    }
+
+    // Update status to pending
+    setMemos(memos.map(m => 
+      m.id === memoId ? { ...m, transcriptionStatus: 'pending' as TranscriptionStatus } : m
+    ));
+
+    try {
+      // Update status in database
+      await supabase
+        .from("memos")
+        .update({ transcription_status: 'pending' })
+        .eq("id", memoId);
+
+      // Trigger background transcription
+      await supabase.functions.invoke("background-transcribe", {
+        body: { 
+          memo_id: memoId, 
+          audio_url: memo.audioUrl, 
+          language: "auto" 
+        },
+      });
+
+      toast.success("Retrying transcription...");
+    } catch (error) {
+      console.error("Retry transcription error:", error);
+      setMemos(memos.map(m => 
+        m.id === memoId ? { ...m, transcriptionStatus: 'failed' as TranscriptionStatus } : m
+      ));
+      toast.error("Failed to retry transcription");
+    }
+  };
+
   const handleSummarizeFolder = async (folder: Folder) => {
     const folderMemos = memos.filter(m => m.folderId === folder.id);
     
@@ -695,6 +733,7 @@ export function LibraryView() {
                             onUpdateTitle={handleUpdateTitle}
                             onUpdateVisibility={handleUpdateVisibility}
                             onMoveToFolder={handleMoveToFolder}
+                            onRetryTranscription={handleRetryTranscription}
                             folders={folders}
                           />
                         </div>
@@ -731,6 +770,7 @@ export function LibraryView() {
                                   onUpdateTitle={handleUpdateTitle}
                                   onUpdateVisibility={handleUpdateVisibility}
                                   onMoveToFolder={handleMoveToFolder}
+                                  onRetryTranscription={handleRetryTranscription}
                                   folders={folders}
                                 />
                               </div>

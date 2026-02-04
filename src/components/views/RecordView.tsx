@@ -58,6 +58,36 @@ export function RecordView() {
     if (user) {
       loadMemos();
       loadFolders();
+      
+      // Subscribe to realtime updates for transcription status
+      const channel = supabase
+        .channel('record-view-memo-updates')
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'memos',
+          filter: `user_id=eq.${user.id}`,
+        }, (payload) => {
+          const updated = payload.new as any;
+          setMemos(prev => prev.map(m => 
+            m.id === updated.id ? {
+              ...m,
+              title: updated.title,
+              transcript: updated.transcript,
+              summary: updated.summary,
+              categories: updated.categories || [],
+              tasks: updated.tasks || [],
+              transcriptionStatus: updated.transcription_status as TranscriptionStatus,
+            } : m
+          ));
+          
+          if (updated.transcription_status === 'completed' && payload.old?.transcription_status === 'processing') {
+            toast.success("Transcription complete!", { description: updated.title });
+          }
+        })
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
     } else {
       setMemos([]);
       setFolders([]);
@@ -162,11 +192,25 @@ export function RecordView() {
       let audioUrl: string | null = null;
       
       if (currentAudioBlob) {
-        const fileName = `${user.id}/memo-${Date.now()}.webm`;
+        // Determine file extension based on blob MIME type
+        const mimeType = currentAudioBlob.type || "audio/mp4";
+        let extension = ".m4a"; // Default to m4a (iOS compatible)
+        if (mimeType.includes("webm")) {
+          extension = ".webm";
+        } else if (mimeType.includes("mp4") || mimeType.includes("aac") || mimeType.includes("m4a")) {
+          extension = ".m4a";
+        } else if (mimeType.includes("mp3") || mimeType.includes("mpeg")) {
+          extension = ".mp3";
+        } else if (mimeType.includes("wav")) {
+          extension = ".wav";
+        }
+        console.log("Uploading audio with MIME:", mimeType, "extension:", extension);
+        
+        const fileName = `${user.id}/memo-${Date.now()}${extension}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("audio-memos")
           .upload(fileName, currentAudioBlob, {
-            contentType: "audio/webm",
+            contentType: mimeType,
           });
 
         if (uploadError) {
@@ -410,6 +454,44 @@ export function RecordView() {
     }
   };
 
+  const handleRetryTranscription = async (memoId: string) => {
+    const memo = memos.find(m => m.id === memoId);
+    if (!memo?.audioUrl) {
+      toast.error("No audio available for transcription");
+      return;
+    }
+
+    // Update status to pending
+    setMemos(memos.map(m => 
+      m.id === memoId ? { ...m, transcriptionStatus: 'pending' as TranscriptionStatus } : m
+    ));
+
+    try {
+      // Update status in database
+      await supabase
+        .from("memos")
+        .update({ transcription_status: 'pending' })
+        .eq("id", memoId);
+
+      // Trigger background transcription
+      await supabase.functions.invoke("background-transcribe", {
+        body: { 
+          memo_id: memoId, 
+          audio_url: memo.audioUrl, 
+          language: memo.language || "auto" 
+        },
+      });
+
+      toast.success("Retrying transcription...");
+    } catch (error) {
+      console.error("Retry transcription error:", error);
+      setMemos(memos.map(m => 
+        m.id === memoId ? { ...m, transcriptionStatus: 'failed' as TranscriptionStatus } : m
+      ));
+      toast.error("Failed to retry transcription");
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-12 pb-36 relative h-full overflow-y-auto overscroll-contain">
       {/* Voice Recorder */}
@@ -462,6 +544,7 @@ export function RecordView() {
                   onUpdateVisibility={handleUpdateVisibility}
                   onMoveToFolder={handleMoveToFolder}
                   onCreateFolder={() => setShowFolderModal(true)}
+                  onRetryTranscription={handleRetryTranscription}
                   folders={folders}
                 />
               </div>
