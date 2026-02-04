@@ -84,8 +84,8 @@ export function BlobVisualizer({ isActive, audioLevel, className = "" }: BlobVis
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
 
-    // Base radius that responds to audio
-    const baseRadius = Math.min(width, height) * 0.25;
+    // Base radius that responds to audio (30% bigger)
+    const baseRadius = Math.min(width, height) * 0.325;
     const audioBoost = isActive ? 1 + level * 1.5 : 1;
     const radius = baseRadius * audioBoost;
 

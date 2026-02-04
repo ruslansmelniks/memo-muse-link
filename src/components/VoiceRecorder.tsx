@@ -316,7 +316,7 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
     >
       <div className="flex flex-col items-center space-y-6">
         {/* Interactive Blob Visualizer */}
-        <div className="w-full h-32 relative">
+        <div className="w-full h-40 relative">
           <AnimatePresence mode="wait">
             {isInitializing ? (
               <motion.div
