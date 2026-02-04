@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mic, Square, Pause, Play, X, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SiriWaveform } from "@/components/SiriWaveform";
+import { BlobVisualizer } from "@/components/BlobVisualizer";
 import { useHaptics } from "@/hooks/useHaptics";
 import { toast } from "@/lib/nativeToast";
 import { LanguageSelector, SUPPORTED_LANGUAGES } from "@/components/LanguageSelector";
@@ -315,17 +315,8 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       className="bg-muted/30 rounded-3xl p-8 border border-border/50 relative overflow-hidden"
     >
       <div className="flex flex-col items-center space-y-6">
-        {/* Language Selector */}
-        <div className="w-full flex justify-center">
-          <LanguageSelector
-            selectedLanguage={selectedLanguage}
-            onLanguageChange={setSelectedLanguage}
-            disabled={isRecording}
-          />
-        </div>
-
-        {/* Siri-style Audio Visualizer */}
-        <div className="w-full h-20 relative">
+        {/* Interactive Blob Visualizer */}
+        <div className="w-full h-32 relative">
           <AnimatePresence mode="wait">
             {isInitializing ? (
               <motion.div
@@ -346,12 +337,12 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
               </motion.div>
             ) : (
               <motion.div
-                key="waveform"
+                key="blob"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="w-full h-full"
               >
-                <SiriWaveform 
+                <BlobVisualizer 
                   isActive={isRecording && !isPaused} 
                   audioLevel={audioLevel} 
                 />
@@ -572,6 +563,15 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
             "Tap to start recording"
           )}
         </p>
+
+        {/* Language Selector - below the hint text */}
+        <div className="w-full flex justify-center pt-2">
+          <LanguageSelector
+            selectedLanguage={selectedLanguage}
+            onLanguageChange={setSelectedLanguage}
+            disabled={isRecording}
+          />
+        </div>
       </div>
     </motion.div>
   );

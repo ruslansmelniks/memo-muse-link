@@ -550,6 +550,19 @@ export function MemoCard({ memo, variant = "default", onDelete, onUpdateTitle, o
                     </DropdownMenuSub>
                   )}
                   
+                  {/* Retry Transcription */}
+                  {onRetryTranscription && memo.audioUrl && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => onRetryTranscription(memo.id)}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Retry transcription
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  
                   <DropdownMenuSeparator />
                   <DropdownMenuItem 
                     onClick={() => setShowDeleteDialog(true)}
