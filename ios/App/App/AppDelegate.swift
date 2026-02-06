@@ -586,7 +586,8 @@ public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
             MPMediaItemPropertyAlbumTitle: "Recording in progress",
             MPNowPlayingInfoPropertyIsLiveStream: true,
             MPNowPlayingInfoPropertyPlaybackRate: 1.0,
-            MPNowPlayingInfoPropertyElapsedPlaybackTime: 0.0
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: 0.0,
+            MPNowPlayingInfoPropertyDefaultPlaybackRate: 1.0
         ]
         
         // Add app icon as artwork
@@ -602,8 +603,13 @@ public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
             print("[NowPlaying] No app icon found")
         }
         
+        // Set now playing info
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
         print("[NowPlaying] Now playing info set")
+        
+        // CRITICAL: Set playback state to playing so iOS shows the widget
+        MPNowPlayingInfoCenter.default().playbackState = .playing
+        print("[NowPlaying] Playback state set to playing")
         
         // Make app become now playing
         UIApplication.shared.beginReceivingRemoteControlEvents()
