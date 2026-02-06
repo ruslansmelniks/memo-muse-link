@@ -547,11 +547,14 @@ public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
     private var durationTimer: Timer?
     
     @objc func startRecording(_ call: CAPPluginCall) {
+        print("[NativeRecording] startRecording called")
         DispatchQueue.main.async {
+            print("[NativeRecording] Setting up on main thread")
             self.recordingStartTime = Date()
             self.setupNowPlaying()
             self.setupRemoteCommands()
             self.startDurationTimer()
+            print("[NativeRecording] Setup complete")
             call.resolve()
         }
     }
@@ -575,6 +578,8 @@ public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
     }
     
     private func setupNowPlaying() {
+        print("[NowPlaying] Setting up now playing info")
+        
         var nowPlayingInfo: [String: Any] = [
             MPMediaItemPropertyTitle: "ThoughtSpark",
             MPMediaItemPropertyArtist: "Keep going, I'm listening...",
@@ -584,64 +589,25 @@ public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
             MPNowPlayingInfoPropertyElapsedPlaybackTime: 0.0
         ]
         
-        // Add app icon as artwork - try multiple sources
-        if let iconImage = loadAppIcon() {
-            let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 300, height: 300)) { _ in iconImage }
+        // Add app icon as artwork
+        if let iconImage = UIImage(named: "AppIcon-512@2x") {
+            print("[NowPlaying] Loaded app icon from assets")
+            let artwork = MPMediaItemArtwork(boundsSize: iconImage.size) { _ in iconImage }
             nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
+        } else if let iconImage = UIApplication.shared.icon {
+            print("[NowPlaying] Loaded app icon from bundle")
+            let artwork = MPMediaItemArtwork(boundsSize: iconImage.size) { _ in iconImage }
+            nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
+        } else {
+            print("[NowPlaying] No app icon found")
         }
         
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+        print("[NowPlaying] Now playing info set")
         
         // Make app become now playing
         UIApplication.shared.beginReceivingRemoteControlEvents()
-    }
-    
-    private func loadAppIcon() -> UIImage? {
-        // Try to load the app icon from various sources
-        // First try the Assets catalog
-        if let icon = UIImage(named: "AppIcon60x60") {
-            return icon
-        }
-        if let icon = UIImage(named: "AppIcon76x76") {
-            return icon
-        }
-        if let icon = UIImage(named: "AppIcon") {
-            return icon
-        }
-        // Try getting it from the bundle
-        if let icon = UIApplication.shared.icon {
-            return icon
-        }
-        // Create a simple placeholder with the app's primary color
-        return createPlaceholderIcon()
-    }
-    
-    private func createPlaceholderIcon() -> UIImage? {
-        let size = CGSize(width: 300, height: 300)
-        UIGraphicsBeginImageContextWithOptions(size, false, 0)
-        
-        // Draw a coral-colored circle (ThoughtSpark brand color)
-        let coralColor = UIColor(red: 232/255, green: 121/255, blue: 91/255, alpha: 1.0)
-        coralColor.setFill()
-        
-        let rect = CGRect(origin: .zero, size: size)
-        UIBezierPath(roundedRect: rect, cornerRadius: 60).fill()
-        
-        // Draw a microphone icon in white
-        if let micIcon = UIImage(systemName: "mic.fill")?.withTintColor(.white, renderingMode: .alwaysOriginal) {
-            let iconSize: CGFloat = 120
-            let iconRect = CGRect(
-                x: (size.width - iconSize) / 2,
-                y: (size.height - iconSize) / 2,
-                width: iconSize,
-                height: iconSize
-            )
-            micIcon.draw(in: iconRect)
-        }
-        
-        let image = UIGraphicsGetImageFromCurrentImageContext()
-        UIGraphicsEndImageContext()
-        return image
+        print("[NowPlaying] Receiving remote control events")
     }
     
     private func updateNowPlayingDuration(_ duration: Double) {
