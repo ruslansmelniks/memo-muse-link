@@ -545,12 +545,13 @@ public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
     
     private var recordingStartTime: Date?
     private var durationTimer: Timer?
+    private var silentPlayer: AVAudioPlayer?
     
     @objc func startRecording(_ call: CAPPluginCall) {
         print("[NativeRecording] startRecording called")
         DispatchQueue.main.async {
-            print("[NativeRecording] Setting up on main thread")
             self.recordingStartTime = Date()
+            self.startSilentAudio()
             self.setupNowPlaying()
             self.setupRemoteCommands()
             self.startDurationTimer()
@@ -565,6 +566,8 @@ public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
             self.recordingStartTime = nil
             self.durationTimer?.invalidate()
             self.durationTimer = nil
+            self.silentPlayer?.stop()
+            self.silentPlayer = nil
             call.resolve()
         }
     }
@@ -577,43 +580,76 @@ public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
     
-    private func setupNowPlaying() {
-        print("[NowPlaying] Setting up now playing info")
+    // Play a near-silent audio loop so iOS treats us as an active audio app
+    // This is required for the Now Playing / lock screen widget to appear
+    private func startSilentAudio() {
+        print("[NativeRecording] Starting silent audio for Now Playing widget")
         
+        // Generate a tiny silent WAV in memory
+        let sampleRate: Double = 44100
+        let duration: Double = 1.0 // 1 second of silence
+        let numSamples = Int(sampleRate * duration)
+        
+        var header = Data()
+        let dataSize = numSamples * 2 // 16-bit mono
+        let fileSize = 36 + dataSize
+        
+        // RIFF header
+        header.append(contentsOf: [0x52, 0x49, 0x46, 0x46]) // "RIFF"
+        header.append(contentsOf: withUnsafeBytes(of: UInt32(fileSize).littleEndian) { Array($0) })
+        header.append(contentsOf: [0x57, 0x41, 0x56, 0x45]) // "WAVE"
+        
+        // fmt chunk
+        header.append(contentsOf: [0x66, 0x6D, 0x74, 0x20]) // "fmt "
+        header.append(contentsOf: withUnsafeBytes(of: UInt32(16).littleEndian) { Array($0) }) // chunk size
+        header.append(contentsOf: withUnsafeBytes(of: UInt16(1).littleEndian) { Array($0) }) // PCM
+        header.append(contentsOf: withUnsafeBytes(of: UInt16(1).littleEndian) { Array($0) }) // mono
+        header.append(contentsOf: withUnsafeBytes(of: UInt32(44100).littleEndian) { Array($0) }) // sample rate
+        header.append(contentsOf: withUnsafeBytes(of: UInt32(88200).littleEndian) { Array($0) }) // byte rate
+        header.append(contentsOf: withUnsafeBytes(of: UInt16(2).littleEndian) { Array($0) }) // block align
+        header.append(contentsOf: withUnsafeBytes(of: UInt16(16).littleEndian) { Array($0) }) // bits per sample
+        
+        // data chunk
+        header.append(contentsOf: [0x64, 0x61, 0x74, 0x61]) // "data"
+        header.append(contentsOf: withUnsafeBytes(of: UInt32(dataSize).littleEndian) { Array($0) })
+        
+        // Silent samples (all zeros)
+        header.append(Data(count: dataSize))
+        
+        do {
+            let player = try AVAudioPlayer(data: header)
+            player.numberOfLoops = -1 // Loop forever
+            player.volume = 0.01 // Near-silent
+            player.play()
+            self.silentPlayer = player
+            print("[NativeRecording] Silent audio playing")
+        } catch {
+            print("[NativeRecording] Failed to start silent audio: \(error)")
+        }
+    }
+    
+    private func setupNowPlaying() {
         var nowPlayingInfo: [String: Any] = [
             MPMediaItemPropertyTitle: "ThoughtSpark",
             MPMediaItemPropertyArtist: "Keep going, I'm listening...",
             MPMediaItemPropertyAlbumTitle: "Recording in progress",
             MPNowPlayingInfoPropertyIsLiveStream: true,
             MPNowPlayingInfoPropertyPlaybackRate: 1.0,
-            MPNowPlayingInfoPropertyElapsedPlaybackTime: 0.0,
-            MPNowPlayingInfoPropertyDefaultPlaybackRate: 1.0
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: 0.0
         ]
         
         // Add app icon as artwork
         if let iconImage = UIImage(named: "AppIcon-512@2x") {
-            print("[NowPlaying] Loaded app icon from assets")
             let artwork = MPMediaItemArtwork(boundsSize: iconImage.size) { _ in iconImage }
             nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
         } else if let iconImage = UIApplication.shared.icon {
-            print("[NowPlaying] Loaded app icon from bundle")
             let artwork = MPMediaItemArtwork(boundsSize: iconImage.size) { _ in iconImage }
             nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
-        } else {
-            print("[NowPlaying] No app icon found")
         }
         
-        // Set now playing info
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
-        print("[NowPlaying] Now playing info set")
-        
-        // CRITICAL: Set playback state to playing so iOS shows the widget
-        MPNowPlayingInfoCenter.default().playbackState = .playing
-        print("[NowPlaying] Playback state set to playing")
-        
-        // Make app become now playing
         UIApplication.shared.beginReceivingRemoteControlEvents()
-        print("[NowPlaying] Receiving remote control events")
+        print("[NowPlaying] Now playing info set with silent audio backing")
     }
     
     private func updateNowPlayingDuration(_ duration: Double) {
@@ -623,7 +659,6 @@ public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
         let minutes = Int(duration) / 60
         let seconds = Int(duration) % 60
         
-        // Show friendly message with duration
         nowPlayingInfo[MPMediaItemPropertyTitle] = "ThoughtSpark"
         nowPlayingInfo[MPMediaItemPropertyArtist] = String(format: "Recording %d:%02d — Keep going!", minutes, seconds)
         
@@ -642,18 +677,19 @@ public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
     private func setupRemoteCommands() {
         let commandCenter = MPRemoteCommandCenter.shared()
         
-        // Handle play/pause - this allows user to tap on lock screen to return to app
         commandCenter.togglePlayPauseCommand.isEnabled = true
         commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
-            // Notify JS to toggle recording
             let js = "window.dispatchEvent(new CustomEvent('nativeRecordingToggle'))"
             self?.bridge?.webView?.evaluateJavaScript(js, completionHandler: nil)
             return .success
         }
         
-        // Disable other controls
-        commandCenter.playCommand.isEnabled = false
-        commandCenter.pauseCommand.isEnabled = false
+        commandCenter.playCommand.isEnabled = true
+        commandCenter.playCommand.addTarget { _ in return .success }
+        
+        commandCenter.pauseCommand.isEnabled = true
+        commandCenter.pauseCommand.addTarget { _ in return .success }
+        
         commandCenter.stopCommand.isEnabled = false
         commandCenter.nextTrackCommand.isEnabled = false
         commandCenter.previousTrackCommand.isEnabled = false
@@ -665,6 +701,8 @@ public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
         
         let commandCenter = MPRemoteCommandCenter.shared()
         commandCenter.togglePlayPauseCommand.removeTarget(nil)
+        commandCenter.playCommand.removeTarget(nil)
+        commandCenter.pauseCommand.removeTarget(nil)
     }
 }
 
