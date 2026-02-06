@@ -576,20 +576,17 @@ public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
     
     private func setupNowPlaying() {
         var nowPlayingInfo: [String: Any] = [
-            MPMediaItemPropertyTitle: "Recording memo...",
-            MPMediaItemPropertyArtist: "ThoughtSpark",
-            MPMediaItemPropertyAlbumTitle: "Tap to return to app",
+            MPMediaItemPropertyTitle: "ThoughtSpark",
+            MPMediaItemPropertyArtist: "Keep going, I'm listening...",
+            MPMediaItemPropertyAlbumTitle: "Recording in progress",
             MPNowPlayingInfoPropertyIsLiveStream: true,
             MPNowPlayingInfoPropertyPlaybackRate: 1.0,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: 0.0
         ]
         
-        // Add app icon as artwork
-        if let appIcon = UIImage(named: "AppIcon") ?? UIImage(named: "AppIcon60x60") {
-            let artwork = MPMediaItemArtwork(boundsSize: appIcon.size) { _ in appIcon }
-            nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
-        } else if let iconImage = UIApplication.shared.icon {
-            let artwork = MPMediaItemArtwork(boundsSize: iconImage.size) { _ in iconImage }
+        // Add app icon as artwork - try multiple sources
+        if let iconImage = loadAppIcon() {
+            let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 300, height: 300)) { _ in iconImage }
             nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork
         }
         
@@ -599,13 +596,64 @@ public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
         UIApplication.shared.beginReceivingRemoteControlEvents()
     }
     
+    private func loadAppIcon() -> UIImage? {
+        // Try to load the app icon from various sources
+        // First try the Assets catalog
+        if let icon = UIImage(named: "AppIcon60x60") {
+            return icon
+        }
+        if let icon = UIImage(named: "AppIcon76x76") {
+            return icon
+        }
+        if let icon = UIImage(named: "AppIcon") {
+            return icon
+        }
+        // Try getting it from the bundle
+        if let icon = UIApplication.shared.icon {
+            return icon
+        }
+        // Create a simple placeholder with the app's primary color
+        return createPlaceholderIcon()
+    }
+    
+    private func createPlaceholderIcon() -> UIImage? {
+        let size = CGSize(width: 300, height: 300)
+        UIGraphicsBeginImageContextWithOptions(size, false, 0)
+        
+        // Draw a coral-colored circle (ThoughtSpark brand color)
+        let coralColor = UIColor(red: 232/255, green: 121/255, blue: 91/255, alpha: 1.0)
+        coralColor.setFill()
+        
+        let rect = CGRect(origin: .zero, size: size)
+        UIBezierPath(roundedRect: rect, cornerRadius: 60).fill()
+        
+        // Draw a microphone icon in white
+        if let micIcon = UIImage(systemName: "mic.fill")?.withTintColor(.white, renderingMode: .alwaysOriginal) {
+            let iconSize: CGFloat = 120
+            let iconRect = CGRect(
+                x: (size.width - iconSize) / 2,
+                y: (size.height - iconSize) / 2,
+                width: iconSize,
+                height: iconSize
+            )
+            micIcon.draw(in: iconRect)
+        }
+        
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return image
+    }
+    
     private func updateNowPlayingDuration(_ duration: Double) {
         var nowPlayingInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo ?? [:]
         nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = duration
         
         let minutes = Int(duration) / 60
         let seconds = Int(duration) % 60
-        nowPlayingInfo[MPMediaItemPropertyTitle] = String(format: "Recording %d:%02d", minutes, seconds)
+        
+        // Show friendly message with duration
+        nowPlayingInfo[MPMediaItemPropertyTitle] = "ThoughtSpark"
+        nowPlayingInfo[MPMediaItemPropertyArtist] = String(format: "Recording %d:%02d — Keep going!", minutes, seconds)
         
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
     }
