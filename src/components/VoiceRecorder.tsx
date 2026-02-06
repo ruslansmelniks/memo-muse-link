@@ -23,12 +23,30 @@ interface VoiceRecorderProps {
   initialLanguage?: string;
 }
 
-export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, initialLanguage = "auto" }: VoiceRecorderProps) {
+const LANGUAGE_STORAGE_KEY = "thoughtspark_recording_language";
+
+export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, initialLanguage = "en-US" }: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [duration, setDuration] = useState(0);
   const [audioLevels, setAudioLevels] = useState<number[]>(Array(12).fill(0.2));
-  const [selectedLanguage, setSelectedLanguage] = useState(initialLanguage);
+  
+  // Load language from localStorage or use default (English)
+  const [selectedLanguage, setSelectedLanguage] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+      if (saved) return saved;
+    }
+    return initialLanguage;
+  });
+
+  // Persist language choice to localStorage
+  const handleLanguageChange = (lang: string) => {
+    setSelectedLanguage(lang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+    }
+  };
   const [showCompletionFeedback, setShowCompletionFeedback] = useState(false);
   const [showCancelFeedback, setShowCancelFeedback] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -591,7 +609,7 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
         <div className="w-full flex justify-center pt-2">
           <LanguageSelector
             selectedLanguage={selectedLanguage}
-            onLanguageChange={setSelectedLanguage}
+            onLanguageChange={handleLanguageChange}
             disabled={isRecording}
           />
         </div>
