@@ -51,6 +51,22 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        // Handle OAuth callback deep links
+        if url.scheme == "app.thoughtspark" && url.host == "auth" {
+            // Forward the URL to the web view so Supabase JS can handle the tokens
+            if let viewController = window?.rootViewController as? NativeTabsViewController,
+               let webView = viewController.bridge?.webView {
+                // Extract fragment (contains access_token, refresh_token, etc.)
+                let fragment = url.fragment ?? ""
+                let query = url.query ?? ""
+                let redirectPath = fragment.isEmpty ? "?\(query)" : "#\(fragment)"
+                let webUrl = "capacitor://localhost/\(redirectPath)"
+                if let finalUrl = URL(string: webUrl) {
+                    webView.load(URLRequest(url: finalUrl))
+                    return true
+                }
+            }
+        }
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 

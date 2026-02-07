@@ -6,14 +6,14 @@ const config: CapacitorConfig = {
   appId: 'app.thoughtspark',
   appName: 'ThoughtSpark',
   webDir: 'dist',
-  ...(serverUrl
-    ? {
-        server: {
-          url: serverUrl,
-          cleartext: true
-        }
-      }
-    : {}),
+  server: {
+    ...(serverUrl ? { url: serverUrl, cleartext: true } : {}),
+    allowNavigation: [
+      'accounts.google.com',
+      '*.google.com',
+      'zlwzuoigrrxwfqsgwuaz.supabase.co',
+    ],
+  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
