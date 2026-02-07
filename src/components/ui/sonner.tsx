@@ -19,8 +19,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
       closeButton={false}
       toastOptions={{
         duration: 1500,
-        // Allow swipe/tap to dismiss
-        dismissible: true,
         classNames: {
           toast:
             "group toast group-[.toaster]:bg-background/95 group-[.toaster]:backdrop-blur-xl group-[.toaster]:text-foreground group-[.toaster]:border-border/50 group-[.toaster]:shadow-md group-[.toaster]:rounded-xl group-[.toaster]:py-2.5 group-[.toaster]:px-4",
