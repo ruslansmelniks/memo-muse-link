@@ -9,7 +9,7 @@ const LandingPage = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-border/50">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <span className="font-serif text-xl font-bold text-gradient">ThoughtSpark</span>
-          <Link to="/">
+          <Link to="/app">
             <Button variant="ghost" size="sm">Open App</Button>
           </Link>
         </div>
@@ -35,7 +35,7 @@ const LandingPage = () => {
                 Download for iOS
               </Button>
             </a>
-            <Link to="/">
+            <Link to="/app">
               <Button variant="outline" size="lg">Try in Browser</Button>
             </Link>
           </div>
