@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Mic, Brain, FolderOpen, Search, Globe, Cloud, Shield, Lightbulb, GraduationCap, Briefcase, PenTool } from "lucide-react";
+import appIcon from "@/assets/app-icon.png";
 
 const LandingPage = () => {
   return (
