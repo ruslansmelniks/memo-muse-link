@@ -22,6 +22,7 @@ const LandingPage = () => {
         <div className="absolute bottom-0 -right-32 w-80 h-80 rounded-full bg-accent/20 blur-3xl animate-float" style={{ animationDelay: "3s" }} />
 
         <div className="relative max-w-3xl mx-auto text-center space-y-8">
+          <img src={appIcon} alt="ThoughtSpark" className="w-28 h-28 mx-auto rounded-[1.5rem] shadow-lg" />
           <h1 className="font-serif text-5xl md:text-7xl font-bold leading-tight tracking-tight">
             Capture Ideas{" "}
             <span className="text-gradient">Instantly</span>
