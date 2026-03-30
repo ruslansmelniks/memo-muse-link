@@ -7,9 +7,8 @@ const LandingPage = () => {
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-border/50">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <span className="font-serif text-xl font-bold text-gradient">ThoughtSpark</span>
+      <nav className="fixed top-0 left-0 right-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-end">
           <Link to="/app">
             <Button variant="ghost" size="sm">Open App</Button>
           </Link>
