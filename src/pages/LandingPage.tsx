@@ -1,14 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Mic, Brain, FolderOpen, Search, Globe, Cloud, Shield, Lightbulb, GraduationCap, Briefcase, PenTool } from "lucide-react";
+import appIcon from "@/assets/app-icon.png";
 
 const LandingPage = () => {
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-border/50">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <span className="font-serif text-xl font-bold text-gradient">ThoughtSpark</span>
+      <nav className="fixed top-0 left-0 right-0 z-50">
+        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-end">
           <Link to="/app">
             <Button variant="ghost" size="sm">Open App</Button>
           </Link>
@@ -22,6 +22,7 @@ const LandingPage = () => {
         <div className="absolute bottom-0 -right-32 w-80 h-80 rounded-full bg-accent/20 blur-3xl animate-float" style={{ animationDelay: "3s" }} />
 
         <div className="relative max-w-3xl mx-auto text-center space-y-8">
+          <img src={appIcon} alt="ThoughtSpark" className="w-28 h-28 mx-auto rounded-[1.5rem] shadow-lg" />
           <h1 className="font-serif text-5xl md:text-7xl font-bold leading-tight tracking-tight">
             Capture Ideas{" "}
             <span className="text-gradient">Instantly</span>
