@@ -56,7 +56,7 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
   const audioChunksRef = useRef<Blob[]>([]);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const animationRef = useRef<number | null>(null);
   const mimeTypeRef = useRef<string>("audio/webm");
   
