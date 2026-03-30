@@ -30,15 +30,12 @@ const LandingPage = () => {
           <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto leading-relaxed">
             Record your thoughts, let AI organize them, and build a searchable library of everything that matters.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-4">
+          <div className="flex justify-center pt-4">
             <a href="https://apps.apple.com" target="_blank" rel="noopener noreferrer">
               <Button variant="hero" size="xl" className="min-w-[220px]">
                 Download for iOS
               </Button>
             </a>
-            <Link to="/app">
-              <Button variant="outline" size="lg">Try in Browser</Button>
-            </Link>
           </div>
         </div>
       </section>
