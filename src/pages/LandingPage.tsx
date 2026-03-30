@@ -35,7 +35,7 @@ const LandingPage = () => {
                 Download for iOS
               </Button>
             </a>
-            <Link to="/">
+            <Link to="/app">
               <Button variant="outline" size="lg">Try in Browser</Button>
             </Link>
           </div>
