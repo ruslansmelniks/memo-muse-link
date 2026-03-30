@@ -94,28 +94,6 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* More Features */}
-      <section className="py-20 px-6">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="font-serif text-3xl md:text-4xl font-bold text-center mb-16">
-            And so much <span className="text-gradient">more</span>
-          </h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { icon: Search, title: "Full-Text Search", desc: "Find any memo instantly" },
-              { icon: Globe, title: "Multi-Language", desc: "Record in any language" },
-              { icon: Cloud, title: "Cloud Sync", desc: "Access from any device" },
-              { icon: Shield, title: "Private by Default", desc: "Your thoughts stay yours" },
-            ].map((f) => (
-              <div key={f.title} className="glass-card rounded-xl p-6 space-y-3 hover:shadow-medium transition-shadow duration-300">
-                <f.icon className="w-6 h-6 text-primary" />
-                <h3 className="font-semibold">{f.title}</h3>
-                <p className="text-sm text-muted-foreground">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* Perfect For */}
       <section className="py-20 px-6 bg-muted/30">
