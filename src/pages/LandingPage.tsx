@@ -138,6 +138,7 @@ const LandingPage = () => {
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <span className="font-serif font-semibold text-foreground">ThoughtSpark</span>
           <div className="flex gap-6">
+            <Link to="/support" className="hover:text-foreground transition-colors">Support</Link>
             <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
             <Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
           </div>
