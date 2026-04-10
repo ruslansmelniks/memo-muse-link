@@ -153,9 +153,9 @@ Welcome to ThoughtSpark! 🎉
 
 ## Support Information
 
-**Support URL:** https://memo-muse-link.lovable.app/support
-**Privacy Policy URL:** https://memo-muse-link.lovable.app/privacy-policy
-**Terms of Service URL:** https://memo-muse-link.lovable.app/terms-of-service
+**Support URL:** https://thoughtspark.app/support
+**Privacy Policy URL:** https://thoughtspark.app/privacy-policy
+**Terms of Service URL:** https://thoughtspark.app/terms-of-service
 
 ---
 

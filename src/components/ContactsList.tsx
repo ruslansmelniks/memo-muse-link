@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Mic, Users, Loader2 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -97,7 +97,6 @@ export function ContactsList({ onSendMemo }: ContactsListProps) {
         >
           <Link to={`/profile/${contact.username ? `@${contact.username}` : contact.user_id}`} className="flex-shrink-0">
             <Avatar className="h-12 w-12">
-              <AvatarImage src={contact.avatar_url || undefined} />
               <AvatarFallback className="text-lg">
                 {(contact.display_name || "U")[0].toUpperCase()}
               </AvatarFallback>

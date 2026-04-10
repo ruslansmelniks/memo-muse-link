@@ -17,8 +17,9 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
-      // Hide splash only from JS after the web app loads — avoids black screen gap if bundle loads slowly
-      launchAutoHide: false,
+      // Safety: if the web bundle fails to load, don't hang forever on splash.
+      // We still call `SplashScreen.hide()` from JS for a smooth transition when things are healthy.
+      launchAutoHide: true,
       launchFadeOutDuration: 500,
       backgroundColor: '#FAF9F6',
       androidSplashResourceName: 'splash',

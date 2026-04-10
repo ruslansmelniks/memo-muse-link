@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { Bookmark, Play, Pause, Heart, Eye, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useBookmarks, BookmarkedMemo } from "@/hooks/useBookmarks";
@@ -107,7 +107,6 @@ function SavedMemoCard({ memo }: { memo: BookmarkedMemo }) {
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                 <Link to={memo.author.id ? `/profile/${memo.author.id}` : "#"} className="flex items-center gap-2 hover:text-foreground transition-colors">
                   <Avatar className="h-5 w-5">
-                    <AvatarImage src={memo.author.avatar} />
                     <AvatarFallback className="text-[10px]">
                       {memo.author.name.charAt(0).toUpperCase()}
                     </AvatarFallback>

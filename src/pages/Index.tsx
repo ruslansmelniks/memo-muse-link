@@ -42,6 +42,18 @@ const Index = () => {
     return () => window.removeEventListener("nativeTabChange", handleNativeTabChange as EventListener);
   }, []);
 
+  useEffect(() => {
+    try {
+      const pendingTab = sessionStorage.getItem("nativeTab");
+      if (pendingTab) {
+        sessionStorage.removeItem("nativeTab");
+        setActiveTab(pendingTab);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
   const isNativeIos =
     typeof window !== "undefined" &&
     (window as typeof window & { Capacitor?: { getPlatform?: () => string } }).Capacitor?.getPlatform?.() === "ios";

@@ -4,7 +4,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { QRCodeDisplay } from "@/components/QRCodeDisplay";
 import { supabase } from "@/integrations/supabase/client";
@@ -167,7 +167,6 @@ export function AddContactSheet({ isOpen, onClose }: AddContactSheetProps) {
                           )}
                         >
                           <Avatar className="h-12 w-12">
-                            <AvatarImage src={result.avatar_url || undefined} />
                             <AvatarFallback>
                               {(result.display_name || "U")[0].toUpperCase()}
                             </AvatarFallback>

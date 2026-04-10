@@ -26,6 +26,29 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@ThoughtSpark" />
     <meta name="twitter:image" content="https://thoughtspark.app/og-image.png" />
+
+    <script>
+      // Avoid registering a service worker inside Capacitor (WKWebView).
+      // SW caching can cause stale JS bundles and "stuck on launch" behavior in native builds.
+      (function () {
+        try {
+          var isCapacitor =
+            typeof window !== "undefined" &&
+            (window.location.protocol === "capacitor:" ||
+              window.location.protocol === "ionic:" ||
+              window.location.href.indexOf("capacitor://") === 0);
+          if (isCapacitor) return;
+          if (!("serviceWorker" in navigator)) return;
+
+          var s = document.createElement("script");
+          s.src = "./registerSW.js";
+          s.defer = true;
+          document.head.appendChild(s);
+        } catch (e) {
+          // If anything goes wrong, fail open (no SW) rather than breaking app launch.
+        }
+      })();
+    </script>
   </head>
 
   <body>

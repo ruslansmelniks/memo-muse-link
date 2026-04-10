@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Users, User, X, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { supabase } from '@/integrations/supabase/client';
@@ -205,7 +205,6 @@ export function ShareRecipientPicker({ selectedRecipients, onChange }: ShareReci
                       )}
                     >
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={profile.avatar_url || undefined} />
                         <AvatarFallback>
                           {(profile.display_name || 'U')[0].toUpperCase()}
                         </AvatarFallback>

@@ -1,7 +1,7 @@
 import { Play, Pause, X, SkipForward, ListMusic } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAudioPlayer } from "@/contexts/AudioPlayerContext";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useRef, useCallback, useState } from "react";
 import {
@@ -110,7 +110,6 @@ export function MiniAudioPlayer() {
             <div className="flex items-center gap-3 p-3">
               {/* Avatar */}
               <Avatar className="h-10 w-10 flex-shrink-0">
-                <AvatarImage src={currentTrack.author.avatar} alt={currentTrack.author.name} />
                 <AvatarFallback className="bg-primary/10 text-primary text-sm">
                   {currentTrack.author.name.charAt(0).toUpperCase()}
                 </AvatarFallback>

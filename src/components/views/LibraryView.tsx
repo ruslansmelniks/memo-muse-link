@@ -9,9 +9,6 @@ import { Button } from "@/components/ui/button";
 import { useHaptics } from "@/hooks/useHaptics";
 import { FolderModal } from "@/components/FolderModal";
 import { FolderSummaryModal } from "@/components/FolderSummaryModal";
-import { PullToRefreshIndicator } from "@/components/PullToRefresh";
-
-import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProfile } from "@/hooks/useProfile";
@@ -69,15 +66,6 @@ export function LibraryView() {
   const { getDisplayName, getAvatarUrl } = useProfile();
   const isMobile = useIsMobile();
   const haptics = useHaptics();
-
-  const handleRefresh = useCallback(async () => {
-    await loadData();
-    toast.success("Refreshed");
-  }, []);
-
-  const { containerRef, pullDistance, isRefreshing, progress, shouldRefresh } = usePullToRefresh({
-    onRefresh: handleRefresh,
-  });
 
   useEffect(() => {
     if (user) {
@@ -558,20 +546,8 @@ export function LibraryView() {
   return (
     <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div 
-        ref={containerRef}
-        className="container mx-auto px-4 pt-6 pb-36 relative h-full overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch"
-        style={{ 
-          transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
-          transition: pullDistance === 0 ? 'transform 0.2s ease-out' : undefined,
-          WebkitOverflowScrolling: 'touch',
-        }}
+        className="container mx-auto px-4 pt-6 pb-36 relative h-full overflow-y-auto overscroll-contain"
       >
-        <PullToRefreshIndicator
-          pullDistance={pullDistance}
-          isRefreshing={isRefreshing}
-          progress={progress}
-          shouldRefresh={shouldRefresh}
-        />
         {/* Tabs */}
         <Tabs defaultValue="my-memos" className="w-full">
           {/* Header */}

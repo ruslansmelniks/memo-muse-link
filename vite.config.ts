@@ -18,6 +18,14 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
+      // Don't auto-inject/register the service worker.
+      // We'll conditionally load it only for web (not Capacitor) in `index.html`.
+      injectRegister: null,
+      devOptions: {
+        // Prevent Workbox from globbing the Capacitor iOS `public/` output during `vite dev`,
+        // which can pull in stale bundles with unmet deps.
+        enabled: false,
+      },
       includeAssets: ["robots.txt", "app-icon-1024.png"],
       manifest: {
         name: "ThoughtSpark - Voice Notes",
@@ -46,6 +54,7 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024, // 5MB
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        globIgnores: ["ios/**", "android/**"],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
