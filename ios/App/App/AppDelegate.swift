@@ -18,16 +18,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         do {
             let audioSession = AVAudioSession.sharedInstance()
             // Set category to playAndRecord to support both recording and playback
+            // .mixWithOthers is CRITICAL: prevents AVAudioPlayer from interrupting
+            //   the web view's MediaRecorder microphone session
             // .allowBluetooth enables Bluetooth headset microphones
-            // .defaultToSpeaker routes audio to speaker when no headphones (important for playback)
+            // .defaultToSpeaker routes audio to speaker when no headphones
             try audioSession.setCategory(
                 .playAndRecord,
                 mode: .spokenAudio,
-                options: [.allowBluetooth, .defaultToSpeaker, .allowAirPlay]
+                options: [.mixWithOthers, .allowBluetoothA2DP, .defaultToSpeaker, .allowAirPlay]
             )
             // Activate the session
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-            print("[AudioSession] Configured for background recording and playback")
+            print("[AudioSession] Configured for background recording and playback (mixWithOthers enabled)")
         } catch {
             print("[AudioSession] Failed to configure: \(error.localizedDescription)")
         }
@@ -81,6 +83,13 @@ final class NativeTabsViewController: CAPBridgeViewController, UITabBarDelegate 
     static weak var shared: NativeTabsViewController?
     private let tabBar = UITabBar()
     private let tabBarHeight: CGFloat = 49
+    
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        if #available(iOS 13.0, *) {
+            return .darkContent
+        }
+        return .default
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -92,6 +101,11 @@ final class NativeTabsViewController: CAPBridgeViewController, UITabBarDelegate 
         bridge?.registerPluginInstance(NativeTabsPlugin())
         bridge?.registerPluginInstance(NativeSaveSheetPlugin())
         bridge?.registerPluginInstance(NativeRecordingPlugin())
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        setNeedsStatusBarAppearanceUpdate()
     }
 
     override func viewDidLayoutSubviews() {
@@ -475,7 +489,9 @@ private final class SaveRecordingSheetViewController: UIViewController {
         folderButton.layer.cornerRadius = 10
         folderButton.layer.borderWidth = 1
         folderButton.layer.borderColor = UIColor.separator.cgColor
-        folderButton.contentEdgeInsets = UIEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
+        var folderConfig = UIButton.Configuration.plain()
+        folderConfig.contentInsets = NSDirectionalEdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 12)
+        folderButton.configuration = folderConfig
         folderButton.addTarget(self, action: #selector(openFolderPicker), for: .touchUpInside)
 
         let buttons = UIStackView()
@@ -600,6 +616,21 @@ public class NativeRecordingPlugin: CAPPlugin, CAPBridgedPlugin {
     // This is required for the Now Playing / lock screen widget to appear
     private func startSilentAudio() {
         print("[NativeRecording] Starting silent audio for Now Playing widget")
+        
+        // Re-ensure audio session is configured with mixWithOthers
+        // so the silent player doesn't interrupt the web view's MediaRecorder
+        do {
+            let audioSession = AVAudioSession.sharedInstance()
+            try audioSession.setCategory(
+                .playAndRecord,
+                mode: .spokenAudio,
+                options: [.mixWithOthers, .allowBluetoothA2DP, .defaultToSpeaker, .allowAirPlay]
+            )
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+            print("[NativeRecording] Audio session re-confirmed with mixWithOthers")
+        } catch {
+            print("[NativeRecording] Audio session config warning: \(error.localizedDescription)")
+        }
         
         // Generate a tiny silent WAV in memory
         let sampleRate: Double = 44100

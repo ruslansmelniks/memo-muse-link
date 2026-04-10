@@ -8,21 +8,25 @@ export const useNativeApp = () => {
     const initializeNativeApp = async () => {
       if (!Capacitor.isNativePlatform()) return;
 
+      // Status bar can fail on some OS versions; never block splash hide on it
       try {
-        // Configure status bar for iOS
         await StatusBar.setStyle({ style: Style.Dark });
-        
-        // On iOS, set the background color (only works on Android, but safe to call)
         if (Capacitor.getPlatform() === 'android') {
           await StatusBar.setBackgroundColor({ color: '#000000' });
         }
+      } catch (error) {
+        console.log('StatusBar init:', error);
+      }
 
-        // Hide splash screen after app is ready
+      try {
+        // Let the browser paint the first frame before hiding native splash (reduces black flash)
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+
         await SplashScreen.hide({
-          fadeOutDuration: 500
+          fadeOutDuration: 500,
         });
       } catch (error) {
-        console.log('Native app initialization:', error);
+        console.log('SplashScreen.hide:', error);
       }
     };
 

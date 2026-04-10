@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { FolderOpen, Clock, Sparkles, GripVertical, Bookmark, Tag, Trash2, RotateCcw, Wand2 } from "lucide-react";
+import { FolderOpen, Clock, Sparkles, GripVertical, Tag, Trash2, RotateCcw, Wand2 } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { LibraryStatsModals } from "@/components/LibraryStatsModals";
 import { PageHeader } from "@/components/PageHeader";
@@ -10,7 +10,7 @@ import { useHaptics } from "@/hooks/useHaptics";
 import { FolderModal } from "@/components/FolderModal";
 import { FolderSummaryModal } from "@/components/FolderSummaryModal";
 import { PullToRefreshIndicator } from "@/components/PullToRefresh";
-import { SavedMemosSection } from "@/components/SavedMemosSection";
+
 import { usePullToRefresh } from "@/hooks/usePullToRefresh";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -559,7 +559,7 @@ export function LibraryView() {
     <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div 
         ref={containerRef}
-        className="container mx-auto px-4 pt-2 pb-36 relative h-full overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch"
+        className="container mx-auto px-4 pt-6 pb-36 relative h-full overflow-y-auto overscroll-contain -webkit-overflow-scrolling-touch"
         style={{ 
           transform: pullDistance > 0 ? `translateY(${pullDistance}px)` : undefined,
           transition: pullDistance === 0 ? 'transform 0.2s ease-out' : undefined,
@@ -593,10 +593,6 @@ export function LibraryView() {
             <TabsTrigger value="my-memos" className="gap-2">
               <FolderOpen className="h-4 w-4" />
               My Memos
-            </TabsTrigger>
-            <TabsTrigger value="saved" className="gap-2">
-              <Bookmark className="h-4 w-4" />
-              Saved
             </TabsTrigger>
             <TabsTrigger value="deleted" className="gap-2">
               <Trash2 className="h-4 w-4" />
@@ -801,18 +797,6 @@ export function LibraryView() {
             </Droppable>
           </div>
         </div>
-          </TabsContent>
-
-          <TabsContent value="saved" className="mt-0">
-            <div className="mb-6 animate-fade-in">
-              <h2 className="font-display text-3xl font-bold text-foreground mb-2">
-                Saved Memos
-              </h2>
-              <p className="text-muted-foreground">
-                Memos you've bookmarked from Discover
-              </p>
-            </div>
-            <SavedMemosSection />
           </TabsContent>
 
           <TabsContent value="deleted" className="mt-0">

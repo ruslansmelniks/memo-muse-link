@@ -63,6 +63,14 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
   // Refs to track recording state for animation loop (closures don't capture state updates)
   const isRecordingRef = useRef(false);
   const isPausedRef = useRef(false);
+  
+  // Guard against double invocation of stopRecording (onClick + onTouchEnd on iOS)
+  const isStoppingRef = useRef(false);
+  
+  // Time-based duration tracking (prevents timer drift from stacked setIntervals)
+  const startTimeRef = useRef<number>(0);
+  const pausedDurationRef = useRef<number>(0);
+  const pauseStartRef = useRef<number>(0);
 
   const haptics = useHaptics();
 
@@ -119,8 +127,8 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
   };
 
   const startRecording = async () => {
-    // Haptic feedback when starting recording
-    haptics.impact("medium");
+    // Heavy haptic for the hero action — matches the large pulsating button
+    haptics.impact("heavy");
     
     try {
       // Show initializing state while accessing microphone
@@ -150,10 +158,13 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           audioChunksRef.current.push(e.data);
+          console.log("[VoiceRecorder] Audio chunk received, size:", e.data.size, "total chunks:", audioChunksRef.current.length);
         }
       };
       
-      mediaRecorder.start();
+      // Use timeslice to collect data periodically (important for iOS Safari)
+      // This ensures chunks are available even if stop() doesn't trigger ondataavailable
+      mediaRecorder.start(1000);
       
       // Set up audio visualization
       audioContextRef.current = new AudioContext();
@@ -166,6 +177,9 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       isRecordingRef.current = true;
       isPausedRef.current = false;
       onRecordingStateChange?.(true);
+      
+      // Confirm "we're live" — two-stage feedback: heavy tap on press, success once mic acquired
+      haptics.notification("success");
       
       // Notify native side for lock screen indicator (iOS only)
       if (Capacitor.isNativePlatform()) {
@@ -181,9 +195,18 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
         setIsInitializing(false);
       }, 600);
       
+      // Time-based duration tracking
+      startTimeRef.current = Date.now();
+      pausedDurationRef.current = 0;
+      pauseStartRef.current = 0;
+      isStoppingRef.current = false;
+      
+      // Defensively clear any stale interval before creating new one
+      if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = setInterval(() => {
-        setDuration(d => d + 1);
-      }, 1000);
+        const elapsed = Math.floor((Date.now() - startTimeRef.current - pausedDurationRef.current) / 1000);
+        setDuration(elapsed);
+      }, 250); // 4x/sec for smooth display
       
       updateAudioLevels();
     } catch (err) {
@@ -205,15 +228,25 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
 
   const stopRecording = async () => {
     console.log("[VoiceRecorder] stopRecording called, isRecording:", isRecording, "hasMediaRecorder:", !!mediaRecorderRef.current);
-    haptics.notification("success");
+    
+    // Guard against double invocation (onClick + onTouchEnd both fire on iOS)
+    if (isStoppingRef.current) {
+      console.log("[VoiceRecorder] Already stopping, ignoring duplicate call");
+      return;
+    }
+    
+    haptics.impact("heavy");
     
     if (isRecording && mediaRecorderRef.current) {
+      isStoppingRef.current = true;
+      
       // Show completion feedback
       setShowCompletionFeedback(true);
       setTimeout(() => setShowCompletionFeedback(false), 800);
       
-      // Capture duration before we reset
-      const finalDuration = duration;
+      // Calculate duration from actual wall-clock time
+      const finalDuration = Math.max(1, Math.floor((Date.now() - startTimeRef.current - pausedDurationRef.current) / 1000));
+      const capturedLanguage = selectedLanguage;
       
       // Notify native side to clear lock screen indicator
       if (Capacitor.isNativePlatform()) {
@@ -225,20 +258,34 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       }
       
       mediaRecorderRef.current.onstop = () => {
-        // Use the MIME type that was actually used for recording
-        const actualMimeType = mimeTypeRef.current || "audio/webm";
-        const audioBlob = new Blob(audioChunksRef.current, { type: actualMimeType });
-        console.log("[VoiceRecorder] onstop fired, blob:", audioBlob.type, audioBlob.size, "duration:", finalDuration);
+        // Read chunks HERE inside onstop -- after stop() has triggered the final ondataavailable
+        // On iOS Safari with audio/mp4, timeslice is ignored and the ONLY ondataavailable
+        // fires after stop(), so pre-capturing chunks would yield an empty array
+        const chunks = audioChunksRef.current;
+        const audioBlob = new Blob(chunks, { type: mimeTypeRef.current || "audio/webm" });
+        console.log("[VoiceRecorder] onstop fired, blob:", audioBlob.type, audioBlob.size, "duration:", finalDuration, "chunks:", chunks.length);
         
-        // ElevenLabs will do the transcription - no browser speech recognition needed
+        // Clear chunks AFTER creating the blob
+        audioChunksRef.current = [];
+        isStoppingRef.current = false;
+        
+        if (audioBlob.size === 0) {
+          console.error("[VoiceRecorder] Empty audio blob! Chunks were:", chunks.length);
+          toast.error("Recording failed - no audio captured");
+          return;
+        }
+        
         console.log("[VoiceRecorder] Calling onRecordingComplete");
-        onRecordingComplete("", finalDuration, audioBlob, selectedLanguage);
+        onRecordingComplete("", finalDuration, audioBlob, capturedLanguage);
       };
       
       mediaRecorderRef.current.stop();
       
-      // Stop audio visualization
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      // Stop timer and animation
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       
       // Stop media stream
@@ -253,7 +300,7 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       isPausedRef.current = false;
       setDuration(0);
       setAudioLevels(Array(12).fill(0.2));
-      audioChunksRef.current = [];
+      // audioChunksRef is cleared inside onstop handler, NOT here
     }
   };
 
@@ -278,8 +325,11 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       mediaRecorderRef.current.onstop = null;
       mediaRecorderRef.current.stop();
       
-      // Stop audio visualization
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      // Stop timer and animation
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
       
       // Stop media stream
@@ -290,6 +340,7 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
       // Reset everything
       setIsRecording(false);
       isRecordingRef.current = false;
+      isStoppingRef.current = false;
       onRecordingStateChange?.(false);
       setIsPaused(false);
       isPausedRef.current = false;
@@ -300,19 +351,32 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
   };
 
   const togglePause = () => {
-    haptics.selection();
+    haptics.impact("light");
     
     if (!mediaRecorderRef.current) return;
     
     if (isPaused) {
+      // Resuming: account for time spent paused
       mediaRecorderRef.current.resume();
       isPausedRef.current = false;
-      intervalRef.current = setInterval(() => setDuration(d => d + 1), 1000);
+      pausedDurationRef.current += Date.now() - (pauseStartRef.current || Date.now());
+      
+      // Defensively clear any stale interval before creating new one
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTimeRef.current - pausedDurationRef.current) / 1000);
+        setDuration(elapsed);
+      }, 250);
       updateAudioLevels();
     } else {
+      // Pausing: record when pause started
       mediaRecorderRef.current.pause();
       isPausedRef.current = true;
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      pauseStartRef.current = Date.now();
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     }
     setIsPaused(!isPaused);
@@ -580,10 +644,6 @@ export function VoiceRecorder({ onRecordingComplete, onRecordingStateChange, ini
                       variant="hero"
                       size="iconLg"
                       onClick={stopRecording}
-                      onTouchEnd={(e) => {
-                        e.preventDefault();
-                        stopRecording();
-                      }}
                       className="w-20 h-20 rounded-full touch-manipulation"
                     >
                       <Square className="h-6 w-6" />

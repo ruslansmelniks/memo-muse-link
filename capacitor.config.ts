@@ -17,9 +17,10 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
-      launchAutoHide: true,
+      // Hide splash only from JS after the web app loads — avoids black screen gap if bundle loads slowly
+      launchAutoHide: false,
       launchFadeOutDuration: 500,
-      backgroundColor: '#000000',
+      backgroundColor: '#FAF9F6',
       androidSplashResourceName: 'splash',
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
@@ -27,8 +28,9 @@ const config: CapacitorConfig = {
       splashImmersive: true
     },
     StatusBar: {
-      style: 'dark',
-      backgroundColor: '#000000'
+      // In Capacitor: 'light' = light background (dark text), 'dark' = dark background (light text)
+      style: 'light',
+      backgroundColor: '#FAF9F6'
     }
   }
 };

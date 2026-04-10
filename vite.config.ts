@@ -5,7 +5,10 @@ import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
 // https://vitejs.dev/config/
+// Relative base is required for Capacitor: absolute "/assets/..." URLs fail to load in WKWebView
+// and the app shows a blank black screen after the splash hides.
 export default defineConfig(({ mode }) => ({
+  base: "./",
   server: {
     host: "::",
     port: 8080,
@@ -15,7 +18,7 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["favicon.ico", "robots.txt"],
+      includeAssets: ["robots.txt", "app-icon-1024.png"],
       manifest: {
         name: "ThoughtSpark - Voice Notes",
         short_name: "ThoughtSpark",
@@ -24,21 +27,17 @@ export default defineConfig(({ mode }) => ({
         background_color: "#1a1a2e",
         display: "standalone",
         orientation: "portrait",
-        start_url: "/",
+        start_url: "./",
         icons: [
           {
-            src: "/pwa-192x192.png",
-            sizes: "192x192",
+            src: "app-icon-1024.png",
+            sizes: "1024x1024",
             type: "image/png",
+            purpose: "any",
           },
           {
-            src: "/pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-          },
-          {
-            src: "/pwa-512x512.png",
-            sizes: "512x512",
+            src: "app-icon-1024.png",
+            sizes: "1024x1024",
             type: "image/png",
             purpose: "maskable",
           },
