@@ -13,6 +13,7 @@ import MemoPage from "./pages/MemoPage";
 import ProfilePage from "./pages/ProfilePage";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import SupportPage from "./pages/SupportPage";
 import NotFound from "./pages/NotFound";
 import LandingPage from "./pages/LandingPage";
 
